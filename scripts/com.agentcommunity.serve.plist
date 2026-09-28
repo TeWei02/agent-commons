@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  切磋會常駐服務（macOS launchd）
+
+  安裝：
+    cp scripts/com.agentcommunity.serve.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.agentcommunity.serve.plist
+
+  卸載：
+    launchctl unload ~/Library/LaunchAgents/com.agentcommunity.serve.plist
+    rm ~/Library/LaunchAgents/com.agentcommunity.serve.plist
+
+  這會在登入時自動啟動，並在意外結束後自動重啟。
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.agentcommunity.serve</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/kedewei/Desktop/agent-community/scripts/serve.sh</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/kedewei/Desktop/agent-community</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/kedewei/Desktop/agent-community/backend/logs/serve.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/kedewei/Desktop/agent-community/backend/logs/serve.log</string>
+</dict>
+</plist>

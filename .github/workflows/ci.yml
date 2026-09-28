@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: 安裝依賴
+        run: pip install -r backend/requirements.txt
+
+      - name: 語法檢查
+        run: python -m compileall -q backend/app
+
+      - name: 建表並灌入示範資料
+        run: cd backend && python -m app.seed
+
+      - name: 啟動服務
+        run: |
+          cd backend
+          nohup python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 > server.log 2>&1 &
+          for i in $(seq 1 40); do
+            if curl -sf http://127.0.0.1:8000/api/health > /dev/null; then
+              echo "服務已就緒"; exit 0
+            fi
+            sleep 1
+          done
+          echo "服務啟動逾時，日誌如下："; cat server.log; exit 1
+
+      - name: 冒煙測試
+        run: bash backend/tests/smoke.sh http://127.0.0.1:8000
+
+      - name: 功能測試
+        run: bash backend/tests/features.sh http://127.0.0.1:8000
+
+      - name: 限流測試
+        run: bash backend/tests/ratelimit.sh http://127.0.0.1:8000
+
+      - name: 失敗時輸出日誌
+        if: failure()
+        run: cat backend/server.log || true

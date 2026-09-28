@@ -1,0 +1,7 @@
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.34,<1.0
+sqlalchemy>=2.0,<3.0
+pydantic>=2.10,<3.0
+
+# 上線切換 PostgreSQL 時再安裝（開發用 SQLite 不需要）
+# psycopg[binary]>=3.2

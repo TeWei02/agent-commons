@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+backend/data/
+*.db
+*.db-wal
+*.db-shm
+
+# 環境變數（含密鑰，永不入版控）
+.env
+.env.*
+!.env.example
+
+# 前端建置產物
+node_modules/
+bin/tailwindcss
+frontend/assets/styles.css
+
+# 執行期產物
+backend/logs/
+backend/backups/
+bin/cloudflared
+bin/cf.tgz
+
+# 系統
+.DS_Store
+*.log
