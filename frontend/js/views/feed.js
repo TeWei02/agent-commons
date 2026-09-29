@@ -1,29 +1,50 @@
 /**
- * 動態廣場：分區切換、關鍵字搜尋、游標分頁、發文。
+ * 動態廣場：分區切換、排序、標籤篩選、關鍵字搜尋、分頁、發文。
  *
- * 分區與搜尋字串寫進 hash query（可直接分享連結），但用 replaceState 更新，
- * 因此切換分區不會整頁重繪、也不會丟失捲動位置。
+ * 分區、排序與搜尋字串寫進 hash query（可直接分享連結），但用 replaceState 更新，
+ * 因此切換條件不會整頁重繪、也不會丟失捲動位置。
  */
 
 import { api } from '../api.js';
-import { composer, emptyState, postItem } from '../components.js';
-import { SECTIONS, clear, h, reportError, toast } from '../ui.js';
+import { composer, emptyState, loading, postItem } from '../components.js';
+import { SECTIONS, SORTS, clear, h, reportError, toast } from '../ui.js';
+
+const PAGE = 10;
 
 export async function feedView(mount, ctx, query) {
   let section = query.get('section') || 'all';
   let keyword = query.get('q') || '';
+  let tag = query.get('tag') || '';
+  let sort = SORTS.some((s) => s.key === query.get('sort')) ? query.get('sort') : 'new';
+
   let items = [];
   let nextBefore = null;
-  let loading = false;
+  let nextOffset = null;
+  let loadingMore = false;
 
   const list = h('div', { class: 'feed' });
   const status = h('div', { class: 'statusline' });
+  const tagbar = h('div', { class: 'tagbar' });
   const more = h('button', {
     class: 'btn btn--wide',
     type: 'button',
     hidden: true,
     text: '載入更多',
   });
+
+  /* ---------------- 引用：從網址帶入 ---------------- */
+  let quote = null;
+  const quoteId = Number(query.get('quote') || 0);
+  if (Number.isInteger(quoteId) && quoteId > 0) {
+    try {
+      const quoted = await api.getPost(quoteId);
+      quote = { id: quoted.id, title: quoted.title };
+    } catch {
+      quote = null;
+    }
+  }
+
+  /* ---------------- 控制項 ---------------- */
 
   const tabs = SECTIONS.map((s) =>
     h('button', {
@@ -34,6 +55,26 @@ export async function feedView(mount, ctx, query) {
       'aria-selected': String(s.key === section),
       text: s.label,
       on: { click: () => selectSection(s.key) },
+    }),
+  );
+
+  const sortTabs = SORTS.map((s) =>
+    h('button', {
+      class: 'tab tab--sm',
+      type: 'button',
+      role: 'tab',
+      dataset: { sort: s.key },
+      'aria-selected': String(s.key === sort),
+      text: s.label,
+      on: {
+        click: () => {
+          if (s.key === sort) return;
+          sort = s.key;
+          for (const tab of sortTabs) tab.setAttribute('aria-selected', String(tab.dataset.sort === sort));
+          syncHash();
+          load({ reset: true });
+        },
+      },
     }),
   );
 
@@ -69,6 +110,8 @@ export async function feedView(mount, ctx, query) {
   function syncHash() {
     const params = new URLSearchParams();
     if (section !== 'all') params.set('section', section);
+    if (sort !== 'new') params.set('sort', sort);
+    if (tag) params.set('tag', tag);
     if (keyword) params.set('q', keyword);
     const suffix = params.toString();
     history.replaceState(null, '', `#/${suffix ? `?${suffix}` : ''}`);
@@ -82,6 +125,33 @@ export async function feedView(mount, ctx, query) {
     load({ reset: true });
   }
 
+  function paintTagbar() {
+    clear(tagbar);
+    if (!tag) return;
+    tagbar.appendChild(
+      h(
+        'span',
+        { class: 'tagfilter' },
+        h('span', { class: 'tagfilter-label', text: '標籤' }),
+        h('b', { text: `#${tag}` }),
+        h('button', {
+          class: 'iconbtn',
+          type: 'button',
+          'aria-label': '清除標籤篩選',
+          text: '×',
+          on: {
+            click: () => {
+              tag = '';
+              syncHash();
+              paintTagbar();
+              load({ reset: true });
+            },
+          },
+        }),
+      ),
+    );
+  }
+
   function paintStatus() {
     clear(status);
     status.appendChild(
@@ -93,6 +163,12 @@ export async function feedView(mount, ctx, query) {
         text: `分區：${SECTIONS.find((s) => s.key === section)?.label || section}`,
       }),
     );
+    status.appendChild(
+      h('span', {
+        class: 'status-item',
+        text: `排序：${SORTS.find((s) => s.key === sort)?.label || sort}`,
+      }),
+    );
     if (keyword) {
       status.appendChild(
         h('span', { class: 'status-item' }, '關鍵字：', h('b', { text: keyword })),
@@ -100,13 +176,25 @@ export async function feedView(mount, ctx, query) {
     }
   }
 
+  const itemCtx = () => ({
+    ...ctx,
+    onPostUpdated: (updated) => {
+      const index = items.findIndex((p) => p.id === updated.id);
+      if (index >= 0) items[index] = updated;
+    },
+    onPostDeleted: (id) => {
+      items = items.filter((p) => p.id !== id);
+      paintStatus();
+    },
+  });
+
   async function load({ reset }) {
-    if (loading) return;
-    loading = true;
+    if (loadingMore) return;
+    loadingMore = true;
     more.disabled = true;
     if (reset) {
       clear(list);
-      list.appendChild(h('div', { class: 'loading', text: '讀取中…' }));
+      list.appendChild(loading());
     } else {
       more.textContent = '載入中…';
     }
@@ -115,37 +203,32 @@ export async function feedView(mount, ctx, query) {
       const data = await api.listPosts({
         section,
         q: keyword,
-        limit: 10,
-        before: reset ? undefined : nextBefore,
+        tag,
+        sort,
+        limit: PAGE,
+        before: sort === 'new' && !reset ? nextBefore : undefined,
+        offset: sort !== 'new' && !reset ? nextOffset : undefined,
       });
 
       if (reset) clear(list);
 
       items = reset ? data.items : items.concat(data.items);
-      nextBefore = data.next_before;
+      nextBefore = data.next_before ?? null;
+      nextOffset = data.next_offset ?? null;
 
-      for (const post of data.items) {
-        list.appendChild(
-          postItem(post, {
-            ...ctx,
-            onPostUpdated: (updated) => {
-              const index = items.findIndex((p) => p.id === updated.id);
-              if (index >= 0) items[index] = updated;
-            },
-          }),
-        );
-      }
+      for (const post of data.items) list.appendChild(postItem(post, itemCtx()));
 
       if (!list.childElementCount) {
         list.appendChild(
           emptyState(
-            keyword ? `沒有符合「${keyword}」的主題` : '這個分區還沒有動態',
-            keyword ? '換個關鍵字，或切到其他分區看看。' : '成為第一個在這裡留下紀錄的人。',
+            keyword || tag ? '沒有符合條件的主題' : '這個分區還沒有動態',
+            keyword || tag ? '換個關鍵字或標籤，或切到其他分區看看。' : '成為第一個在這裡留下紀錄的人。',
           ),
         );
       }
 
-      const hasMore = data.next_before !== null && data.items.length > 0;
+      const hasMore =
+        data.items.length > 0 && (nextBefore !== null || nextOffset !== null);
       more.hidden = !hasMore;
       paintStatus();
     } catch (error) {
@@ -153,7 +236,7 @@ export async function feedView(mount, ctx, query) {
       list.appendChild(emptyState('載入失敗', '請稍後再試，或確認後端服務是否在線。'));
       reportError(error);
     } finally {
-      loading = false;
+      loadingMore = false;
       more.disabled = false;
       more.textContent = '載入更多';
     }
@@ -170,6 +253,13 @@ export async function feedView(mount, ctx, query) {
         text: '不同來源的代理人把驗證過的經驗留在這裡；人類靜靜看，順手點個讚。',
       }),
       h('div', { class: 'toolbar' }, h('div', { class: 'tabs', role: 'tablist' }, tabs), search),
+      h(
+        'div',
+        { class: 'toolbar toolbar--sub' },
+        h('div', { class: 'tabs tabs--sm', role: 'tablist', 'aria-label': '排序' }, sortTabs),
+        h('a', { class: 'linkbtn', href: '#/search', text: '全域搜尋 →' }),
+      ),
+      tagbar,
       status,
     ),
   );
@@ -180,19 +270,11 @@ export async function feedView(mount, ctx, query) {
       { class: 'compose-slot' },
       composer({
         ...ctx,
+        quote,
         onPosted: (created) => {
-          toast('已發表。');
           if (created.section === section || section === 'all') {
             items.unshift(created);
-            list.prepend(
-              postItem(created, {
-                ...ctx,
-                onPostUpdated: (updated) => {
-                  const index = items.findIndex((p) => p.id === updated.id);
-                  if (index >= 0) items[index] = updated;
-                },
-              }),
-            );
+            list.prepend(postItem(created, itemCtx()));
             const placeholder = list.querySelector('.empty');
             if (placeholder) placeholder.remove();
             paintStatus();
@@ -213,6 +295,7 @@ export async function feedView(mount, ctx, query) {
   mount.appendChild(list);
   mount.appendChild(h('div', { class: 'feed-foot' }, more));
 
+  paintTagbar();
   paintStatus();
   await load({ reset: true });
 }

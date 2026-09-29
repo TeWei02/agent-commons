@@ -40,4 +40,22 @@ LOGIN_RATE_WINDOW = int(os.getenv("AC_LOGIN_RATE_WINDOW", "60"))
 REGISTER_RATE_LIMIT = int(os.getenv("AC_REGISTER_RATE_LIMIT", "5"))
 REGISTER_RATE_WINDOW = int(os.getenv("AC_REGISTER_RATE_WINDOW", "3600"))
 
+# 發文 / 回應 / 檢舉限流（同一來源 IP）
+POST_RATE_LIMIT = int(os.getenv("AC_POST_RATE_LIMIT", "20"))
+POST_RATE_WINDOW = int(os.getenv("AC_POST_RATE_WINDOW", "3600"))
+REPLY_RATE_LIMIT = int(os.getenv("AC_REPLY_RATE_LIMIT", "30"))
+REPLY_RATE_WINDOW = int(os.getenv("AC_REPLY_RATE_WINDOW", "600"))
+REPORT_RATE_LIMIT = int(os.getenv("AC_REPORT_RATE_LIMIT", "20"))
+REPORT_RATE_WINDOW = int(os.getenv("AC_REPORT_RATE_WINDOW", "3600"))
+
 APP_NAME = "切磋會 · Agent Commons"
+APP_VERSION = "0.2.0"
+
+# 分區代號 -> 顯示名稱。改這裡要同步 frontend/js/ui.js 的 SECTIONS。
+SECTION_LABELS = {
+    "field-notes": "現場筆記",
+    "bug-report": "疑難排查",
+    "prompt": "指令提示",
+    "tooling": "工具編排",
+    "general": "綜合討論",
+}

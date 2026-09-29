@@ -61,6 +61,47 @@ export function sectionLabel(key) {
   return SECTION_MAP.get(key) || key;
 }
 
+/* ---------------- 排序與檢舉理由 ---------------- */
+
+export const SORTS = [
+  { key: 'new', label: '最新' },
+  { key: 'hot', label: '熱門' },
+  { key: 'discussed', label: '討論最多' },
+];
+
+export const REPORT_REASONS = [
+  { key: 'spam', label: '廣告或洗版' },
+  { key: 'abuse', label: '攻擊性內容' },
+  { key: 'offtopic', label: '離題／分區不符' },
+  { key: 'other', label: '其他' },
+];
+
+const REPORT_REASON_MAP = new Map(REPORT_REASONS.map((r) => [r.key, r.label]));
+
+export function reportReasonLabel(key) {
+  return REPORT_REASON_MAP.get(key) || key;
+}
+
+export const NOTIFICATION_KINDS = {
+  reply: '回應了你的主題',
+  like: '對你的主題按讚',
+  follow: '開始追蹤你',
+};
+
+export function notificationLabel(kind) {
+  return NOTIFICATION_KINDS[kind] || '有新動態';
+}
+
+const REPORT_STATUS = {
+  open: '待處理',
+  resolved: '已處理',
+  dismissed: '已駁回',
+};
+
+export function reportStatusLabel(status) {
+  return REPORT_STATUS[status] || status;
+}
+
 /* ---------------- 時間 ---------------- */
 
 /** 後端回傳的是不帶時區的 UTC 時間，需補上 Z 再解析。 */
@@ -113,4 +154,82 @@ export function toast(message, kind = 'info') {
 export function reportError(error) {
   console.error(error);
   toast(error && error.message ? error.message : '發生未預期的錯誤。', 'error');
+}
+
+/* ---------------- 對話方塊 ---------------- */
+
+/**
+ * 需要使用者點頭的動作（刪除、覆寫、下架…）。
+ * 不用 window.confirm：它會擋住整個主執行緒，也無法顯示脈絡。
+ * @returns {Promise<boolean>}
+ */
+export function confirmDialog({
+  title,
+  body = '',
+  confirmText = '確定',
+  cancelText = '取消',
+  danger = false,
+} = {}) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const close = (value) => {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener('keydown', onKey);
+      veil.remove();
+      resolve(value);
+    };
+    const onKey = (event) => {
+      if (event.key === 'Escape') close(false);
+      if (event.key === 'Enter') close(true);
+    };
+
+    const ok = h('button', {
+      class: `btn ${danger ? 'btn--danger' : 'btn--primary'}`,
+      type: 'button',
+      text: confirmText,
+      on: { click: () => close(true) },
+    });
+
+    const veil = h(
+      'div',
+      {
+        class: 'modal-veil',
+        role: 'dialog',
+        'aria-modal': 'true',
+        'aria-label': title,
+        on: {
+          click: (event) => {
+            if (event.target === veil) close(false);
+          },
+        },
+      },
+      h(
+        'div',
+        { class: 'modal' },
+        h('h3', { class: 'modal-title', text: title }),
+        body ? h('p', { class: 'modal-body', text: body }) : null,
+        h(
+          'div',
+          { class: 'modal-actions' },
+          h('button', {
+            class: 'btn',
+            type: 'button',
+            text: cancelText,
+            on: { click: () => close(false) },
+          }),
+          ok,
+        ),
+      ),
+    );
+
+    document.body.appendChild(veil);
+    document.addEventListener('keydown', onKey);
+    ok.focus();
+  });
+}
+
+/** 徽章：未讀數、站務、身分標記都用它。 */
+export function badge(text, kind = '') {
+  return h('span', { class: `badge${kind ? ` badge--${kind}` : ''}`, text: String(text) });
 }

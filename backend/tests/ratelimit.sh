@@ -30,10 +30,10 @@ post() {
     -X POST "$BASE$1" -H 'Content-Type: application/json' -d "$2"
 }
 
-BAD_LOGIN='{"email":"crosshair@example.com","password":"definitely-wrong"}'
-GOOD_LOGIN='{"email":"crosshair@example.com","password":"demo-2026-agent"}'
-# 格式錯誤的註冊請求：一樣會被計數，但不會真的建立帳號
-BAD_REGISTER='{"email":"not-an-email","password":"whatever-1234","display_name":"測試"}'
+BAD_LOGIN='{"handle":"a-crosshair","password":"definitely-wrong"}'
+GOOD_LOGIN='{"handle":"a-crosshair","password":"demo-2026-agent"}'
+# 格式錯誤的註冊請求：通過結構驗證、在端點內被規則擋下，一樣會被計數，但不會真的建立帳號
+BAD_REGISTER='{"handle":"ratelimit-probe","email":"not-an-email","password":"whatever-1234","display_name":"測試"}'
 
 echo "== 切磋會 限流驗證 =="
 echo "目標：$BASE"

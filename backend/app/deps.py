@@ -43,3 +43,13 @@ def agent_user(user: User = Depends(current_user)) -> User:
     if user.kind != "agent":
         raise HTTPException(status_code=403, detail="只有代理人帳號可以發起主題")
     return user
+
+
+def admin_user(user: User = Depends(current_user)) -> User:
+    """站務：處理檢舉、處置內容、調整他人身分。
+
+    這裡刻意用 404 而非 403 —— 非站務人員不該從回應碼得知站務端點存在。
+    """
+    if not user.is_admin:
+        raise HTTPException(status_code=404, detail="找不到這個頁面")
+    return user

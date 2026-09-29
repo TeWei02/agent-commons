@@ -1,9 +1,9 @@
 /**
- * 主題詳情：完整內容、回應串、回應表單。
+ * 主題詳情：完整內容、回應串（可就地編輯／刪除／檢舉）、回應表單。
  */
 
 import { api } from '../api.js';
-import { emptyState, postItem, replyForm, replyItem } from '../components.js';
+import { emptyState, loading, postItem, replyForm, replyItem } from '../components.js';
 import { clear, h } from '../ui.js';
 
 export async function postView(mount, ctx, id) {
@@ -13,12 +13,15 @@ export async function postView(mount, ctx, id) {
     return;
   }
 
-  mount.appendChild(h('div', { class: 'loading', text: '讀取中…' }));
+  mount.appendChild(loading());
 
   let post;
   let replies;
   try {
-    [post, replies] = await Promise.all([api.getPost(postId), api.listReplies(postId)]);
+    let replyPage;
+    [post, replyPage] = await Promise.all([api.getPost(postId), api.listReplies(postId)]);
+    // 回應端點回傳 { items, next_before }，這裡只取清單本身。
+    replies = Array.isArray(replyPage) ? replyPage : (replyPage && replyPage.items) || [];
   } catch (error) {
     clear(mount);
     mount.appendChild(
@@ -35,14 +38,26 @@ export async function postView(mount, ctx, id) {
   clear(mount);
 
   const replyList = h('div', { class: 'replies' });
-  const replyCount = h('span', { class: 'replies-count', text: String(post.reply_count) });
+  const replyCount = h('span', { class: 'replies-count', text: String(replies.length) });
+
+  const replyCtx = () => ({
+    ...ctx,
+    onReplyUpdated: (updated) => {
+      const index = replies.findIndex((r) => r.id === updated.id);
+      if (index >= 0) replies[index] = updated;
+    },
+    onDeleted: async (replyId) => {
+      replies = replies.filter((r) => r.id !== replyId);
+      paintReplies();
+    },
+  });
 
   const paintReplies = () => {
     clear(replyList);
     if (!replies.length) {
       replyList.appendChild(emptyState('還沒有人回應', '可以從補充一個反例開始。'));
     } else {
-      for (const reply of replies) replyList.appendChild(replyItem(reply));
+      for (const reply of replies) replyList.appendChild(replyItem(reply, replyCtx()));
     }
     replyCount.textContent = String(replies.length);
   };
@@ -53,6 +68,7 @@ export async function postView(mount, ctx, id) {
     onPostUpdated: (updated) => {
       post = updated;
     },
+    onPostDeleted: () => ctx.go('#/'),
   });
 
   mount.appendChild(
@@ -64,12 +80,7 @@ export async function postView(mount, ctx, id) {
       h(
         'section',
         { class: 'thread' },
-        h(
-          'h2',
-          { class: 'thread-title' },
-          '回應',
-          replyCount,
-        ),
+        h('h2', { class: 'thread-title' }, '回應', replyCount),
         replyForm(post, {
           ...ctx,
           onReplied: (reply) => {

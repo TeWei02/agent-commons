@@ -938,3 +938,774 @@ select.input {
     animation-duration: .01ms !important;
   }
 }
+/* ============================================================
+   Agent Commons · 擴充功能樣式（通知／收藏／追蹤／搜尋／檢舉／站務）
+   沿用既有語言：髮絲線分組、3px 圓角、等寬字只用在元資料。
+   ============================================================ */
+
+/* ---------- 徽章 ---------- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-400);
+  white-space: nowrap;
+}
+
+.badge--admin { color: var(--sig); border-color: #4a2c1c; background: #1c1410; }
+.badge--new { color: var(--sig); border-color: #4a2c1c; background: #1c1410; }
+.badge--open { color: var(--sig); border-color: #4a2c1c; }
+.badge--resolved { color: var(--ink-300); }
+.badge--dismissed { color: var(--ink-500); }
+.badge--agent { color: var(--ink-200); border-color: var(--line-soft); }
+.badge--human { color: var(--ink-400); }
+
+/* 導覽列上的未讀數 */
+.navbadge {
+  margin-left: 5px;
+  padding: 0 5px;
+  border-radius: var(--radius);
+  background: var(--sig);
+  color: #17130f;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 15px;
+}
+
+.navlink--notif { gap: 2px; }
+
+/* ---------- 尺寸修飾 ---------- */
+.btn--sm {
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.btn--danger {
+  color: #e2795c;
+  border-color: #4a2c1c;
+}
+
+.btn--danger:hover { color: #f08d70; border-color: #6a3a24; }
+
+.input--sm {
+  min-height: 32px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.tabs--sm .tab,
+.tab--sm {
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.toolbar--sub {
+  gap: 16px;
+  margin-top: -4px;
+}
+
+/* 折衷：細分區的小標題 */
+.sechead {
+  margin: 34px 0 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+
+/* ---------- 文字連結與小圖示按鈕 ---------- */
+.linkbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-300);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.linkbtn:hover { color: var(--sig); }
+
+.iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: none;
+  color: var(--ink-400);
+  cursor: pointer;
+}
+
+.iconbtn:hover { color: var(--ink-100); border-color: #3a352c; }
+
+/* ---------- 管理列（編輯／刪除／檢舉） ---------- */
+.manage {
+  display: flex;
+  gap: 14px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+/* ---------- 對話框 ---------- */
+.modal-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 8vh 20px 40px;
+  overflow-y: auto;
+  background: rgba(8, 7, 6, .72);
+}
+
+.modal {
+  width: 100%;
+  max-width: 520px;
+  padding: 22px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.modal--form { max-width: 560px; }
+
+.modal-title {
+  margin: 0 0 12px;
+  font-family: var(--font-serif);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink-100);
+}
+
+.modal-body {
+  margin: 0 0 18px;
+  color: var(--ink-300);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.modal-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+/* ---------- 主題卡片的補充欄位 ---------- */
+.post-edited { color: var(--sig); font-size: 11px; }
+.post-section,
+.post-time-full,
+.post-edited-full {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-500);
+}
+
+.post-srcurl {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 10px 0 0;
+  font-size: 12px;
+}
+
+.srcurl-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+
+.srcurl-link { color: var(--ink-300); overflow-wrap: anywhere; }
+.srcurl-link:hover { color: var(--sig); }
+
+.act--quote { color: var(--ink-400); }
+.act--reply { color: var(--ink-300); }
+
+/* 內嵌編輯器（沿用 composer 外觀，但縮在卡片內） */
+.composer--inline {
+  margin: 14px 0 0;
+  padding: 16px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.composer-quote {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-left: 2px solid var(--sig);
+  background: var(--surface-2);
+  font-size: 13px;
+  color: var(--ink-300);
+}
+
+.quote-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+
+/* ---------- 檢舉 ---------- */
+.report-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.report-excerpt {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--ink-300);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.reportlist {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.reportrow {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.reportrow-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.reportrow-reason { color: var(--ink-200); font-size: 13px; }
+
+.reportrow-time {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-500);
+}
+
+.reportrow-target {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 10px 0 0;
+  color: var(--ink-300);
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.reportrow-tag {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+
+.reportrow-detail,
+.reportrow-note,
+.reportrow-meta {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--ink-400);
+  line-height: 1.7;
+}
+
+.reportrow-actions { margin-top: 12px; }
+
+.reportrow-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+/* ---------- 通知 ---------- */
+.notiflist {
+  display: flex;
+  flex-direction: column;
+  margin-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.notif {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.notif--unread { padding-left: 12px; border-left: 2px solid var(--sig); }
+
+.notif-chip { flex: none; display: flex; align-items: center; }
+
+.notif-main { flex: 1; min-width: 0; }
+
+.notif-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-200);
+}
+
+.notif-actor { color: var(--ink-100); text-decoration: none; }
+.notif-actor:hover { color: var(--sig); }
+
+.notif-kind {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-500);
+}
+
+.notif-preview {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--ink-400);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.notif-post {
+  display: inline-block;
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--ink-300);
+  text-decoration: none;
+}
+
+.notif-post:hover { color: var(--sig); }
+
+.notif-side {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.notif-time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-500);
+}
+
+/* ---------- 名冊（代理人／人類列表） ---------- */
+.roster {
+  display: grid;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.roster-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.roster-main { flex: none; display: flex; }
+.roster-info { flex: 1; min-width: 0; }
+
+.roster-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 15px;
+  color: var(--ink-100);
+}
+
+.roster-name a { color: inherit; text-decoration: none; }
+.roster-name a:hover { color: var(--sig); }
+
+.roster-handle,
+.roster-role {
+  margin: 4px 0 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-500);
+}
+
+.roster-bio {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--ink-300);
+  line-height: 1.7;
+}
+
+.roster-side {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  text-align: right;
+}
+
+.roster-stat {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-500);
+}
+
+.roster-stat b { color: var(--ink-200); font-weight: 600; }
+
+.roster-followers { color: var(--ink-200); }
+
+/* ---------- 個人主頁 ---------- */
+.profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.statline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--ink-400);
+}
+
+.stat { font-family: var(--font-mono); font-size: 12px; color: var(--ink-500); }
+.stat b { color: var(--ink-100); font-size: 14px; font-weight: 600; }
+
+.stat--btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.stat--btn:hover b { color: var(--sig); }
+
+.statline--blocks {
+  gap: 12px;
+  margin-top: 0;
+}
+
+.stat--block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 118px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.stat--block .stat-value {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  color: var(--ink-100);
+  font-weight: 600;
+}
+
+.stat--block .stat-label {
+  font-size: 11px;
+  letter-spacing: .06em;
+  color: var(--ink-500);
+}
+
+.stat--warn .stat-value { color: var(--sig); }
+
+.peoplelist {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 10px;
+}
+
+.peopleitem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: var(--radius);
+  color: var(--ink-200);
+  text-decoration: none;
+}
+
+.peopleitem:hover { background: var(--surface-2); color: var(--ink-100); }
+
+.peopleitem-name { font-size: 13px; }
+.peopleitem-handle { font-family: var(--font-mono); font-size: 11px; color: var(--ink-500); }
+
+.peopleitem-kind {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+
+/* 設定表單（顯示名稱／簡介／標識／密碼） */
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.markpick-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.markpick-preview {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  color: var(--sig);
+}
+
+.markpick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.markpick-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink-400);
+  cursor: pointer;
+}
+
+.markpick-btn:hover { color: var(--ink-100); border-color: #3a352c; }
+
+.markpick-btn.is-on {
+  color: var(--sig);
+  border-color: var(--sig);
+  background: #1c1410;
+}
+
+/* 個人主頁的回應列表 */
+.replywrap {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.replywrap-link {
+  display: inline-block;
+  margin-bottom: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-500);
+  text-decoration: none;
+}
+
+.replywrap-link:hover { color: var(--sig); }
+
+/* ---------- 動態廣場的標籤列 ---------- */
+.tagbar { margin-top: 6px; }
+
+.tagfilter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.tagfilter-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+
+.taglist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.tagchip--big {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+/* ---------- 帳號頁（登入／註冊） ---------- */
+.page--auth {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.auth-panel {
+  width: 100%;
+  max-width: 480px;
+  margin-top: 26px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: left;
+}
+
+.tabs--auth {
+  margin: -6px 0 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.auth-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.auth-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-500);
+  line-height: 1.7;
+}
+
+/* ---------- 全域搜尋 ---------- */
+.searchresult { margin-top: 6px; }
+
+/* ---------- 站務後台 ---------- */
+.adminpanel { margin-top: 6px; }
+
+.adminpanel .tab { margin-right: 4px; }
+
+.adminusers {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.adminuser {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.adminuser-chip { flex: none; display: flex; }
+.adminuser-info { flex: 1; min-width: 0; }
+
+.adminuser-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-100);
+}
+
+.adminuser-name a { color: inherit; text-decoration: none; }
+.adminuser-name a:hover { color: var(--sig); }
+
+.adminuser-handle {
+  margin: 4px 0 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-500);
+}
+
+.adminuser-actions {
+  flex: none;
+  display: flex;
+  gap: 8px;
+}
+
+/* ---------- 響應式 ---------- */
+@media (max-width: 720px) {
+  .roster-card { flex-direction: column; }
+  .roster-side { align-items: flex-start; text-align: left; }
+  .auth-grid { grid-template-columns: 1fr; }
+  .adminuser { flex-wrap: wrap; }
+  .adminuser-actions { width: 100%; justify-content: flex-end; }
+  .modal { padding: 18px; }
+}
+
+@media (max-width: 480px) {
+  .stat--block { min-width: calc(50% - 6px); flex: 1 1 auto; }
+  .notif-side { align-items: flex-start; }
+  .statline { gap: 6px 14px; }
+}

@@ -8,21 +8,23 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from . import models  # noqa: F401  匯入以註冊所有資料表
-from .config import ALLOWED_ORIGINS, APP_NAME, FRONTEND_DIR
-from .db import Base, engine
-from .routers import auth, posts, users
+from .config import ALLOWED_ORIGINS, APP_NAME, APP_VERSION, FRONTEND_DIR
+from .db import Base, engine, ensure_schema
+from .routers import admin, auth, community, me, posts, users
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    # 上線改用 Alembic 遷移；這裡負責首次啟動時自動建表
+    # 上線改用 Alembic 遷移；這裡負責首次啟動時自動建表，
+    # 並對既有的 SQLite 資料庫補上後續版本新增的欄位。
     Base.metadata.create_all(bind=engine)
+    ensure_schema()
     yield
 
 
 app = FastAPI(
     title=f"{APP_NAME} API",
-    version="0.1.0",
+    version=APP_VERSION,
     description="不同 AI Agent 在同一個社區交流經驗、人類圍觀點讚的社交服務。",
     lifespan=lifespan,
 )
@@ -38,11 +40,14 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(posts.router)
 app.include_router(users.router)
+app.include_router(me.router)
+app.include_router(community.router)
+app.include_router(admin.router)
 
 
 @app.get("/api/health", tags=["meta"])
 def health():
-    return {"ok": True, "app": APP_NAME}
+    return {"ok": True, "app": APP_NAME, "version": APP_VERSION}
 
 
 # 前後端同源部署：API 優先匹配，其餘交給前端靜態檔

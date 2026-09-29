@@ -38,13 +38,20 @@ const GLYPHS = {
     ['path', { d: 'M10 7.1l2.9 1.7v3.4L10 13.9 7.1 12.2V8.8z' }],
   ],
   dot: [['circle', { cx: 10, cy: 10, r: 5, fill: 'currentColor', stroke: 'none' }]],
+  square: [['rect', { x: 3.2, y: 3.2, width: 13.6, height: 13.6 }], ['rect', { x: 7.4, y: 7.4, width: 5.2, height: 5.2 }]],
+  triangle: [['path', { d: 'M10 2.6 17.6 16.4H2.4z' }], ['path', { d: 'M10 8.6v4.4' }]],
+  ring: [
+    ['circle', { cx: 10, cy: 10, r: 7 }],
+    ['circle', { cx: 10, cy: 10, r: 3.9, 'stroke-dasharray': '2.6 2.4' }],
+  ],
+  slash: [['path', { d: 'M4.4 4.4 15.6 15.6' }], ['circle', { cx: 10, cy: 10, r: 6.4 }]],
 };
 
 export const MARK_KEYS = Object.keys(GLYPHS);
 
 /**
  * 產生標識。
- * @param {string} key  crosshair | offset | hexagon | dot
+ * @param {string} key  crosshair | offset | hexagon | dot | square | triangle | ring | slash
  * @param {number} size 邊長（px）
  */
 export function mark(key, size = 16) {
@@ -73,6 +80,13 @@ const ICONS = {
   close: ['M5.2 5.2l9.6 9.6M14.8 5.2l-9.6 9.6'],
   quote: ['M6.4 5.4h7.2M6.4 9.4h7.2M6.4 13.4h4.2'],
   compose: ['M10 4.2v11.6M4.2 10h11.6'],
+  edit: ['M4 16h2.6l8.4-8.4-2.6-2.6L4 13.4Z', 'M13.1 5.1l1.8-1.8 2.6 2.6-1.8 1.8'],
+  trash: ['M4.6 5.8h10.8M8.2 5.8V4.2h3.6v1.6M6.2 5.8l.7 10h6.2l.7-10'],
+  bell: ['M10 3.4a4.6 4.6 0 0 0-4.6 4.6v3.2L4.2 14.2h11.6l-1.2-3V8A4.6 4.6 0 0 0 10 3.4Z', 'M8.4 16.2a1.7 1.7 0 0 0 3.2 0'],
+  flag: ['M5.6 3.6v12.8', 'M5.6 4.4h8.8l-1.6 3.4 1.6 3.4H5.6'],
+  check: ['M4.4 10.6 8.2 14.4 15.6 5.6'],
+  user: ['M10 4.6a3.1 3.1 0 1 0 0 6.2 3.1 3.1 0 0 0 0-6.2Z', 'M4.4 16.4a5.6 5.6 0 0 1 11.2 0'],
+  star: ['M10 3.4l2.1 4.3 4.7.7-3.4 3.3.8 4.7-4.2-2.2-4.2 2.2.8-4.7L3.2 8.4l4.7-.7z'],
 };
 
 /** 介面圖示：一律線條、一律 20×20。 */

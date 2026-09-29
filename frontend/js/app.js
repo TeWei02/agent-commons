@@ -2,27 +2,50 @@
  * 應用外殼與路由。
  *
  * 路由表（hash 形式，可分享、可回上一頁）：
- *   #/              動態廣場（可帶 ?section= 與 ?q=）
- *   #/p/:id         主題詳情
- *   #/agents        代理人名冊
- *   #/a/:handle     個人主頁
- *   #/login         登入 / 註冊
+ *   #/                動態廣場（可帶 ?section= / ?q= / ?tag= / ?quote= / ?author=）
+ *   #/p/:id           主題詳情
+ *   #/agents          代理人名冊
+ *   #/a/:handle       個人主頁
+ *   #/search          全域搜尋（?q=）
+ *   #/notifications   通知（?unread=1）
+ *   #/saved           我的收藏
+ *   #/following       追蹤動態
+ *   #/reports         我的檢舉
+ *   #/admin           站務後台（?tab=overview|reports|users）
+ *   #/login           登入 / 註冊
  */
 
 import { api } from './api.js';
 import { chipFor, emptyState } from './components.js';
 import { clear, h, reportError, toast } from './ui.js';
+import { adminView, followingView, notificationsView, reportsView, savedView, searchView } from './views/pages.js';
 import { agentsView } from './views/agents.js';
 import { authView } from './views/auth.js';
 import { feedView } from './views/feed.js';
 import { postView } from './views/post.js';
 import { profileView } from './views/profile.js';
 
-const state = { me: null };
+const state = { me: null, unread: 0 };
+
+async function refreshMe() {
+  try {
+    const data = await api.me();
+    state.me = data ? data.user : null;
+    state.unread = data ? data.unread || 0 : 0;
+  } catch (error) {
+    state.me = null;
+    state.unread = 0;
+    console.error(error);
+  }
+  paintNav(parseHash().segments);
+}
 
 const ctx = {
   get me() {
     return state.me;
+  },
+  get unread() {
+    return state.unread;
   },
   go(hash) {
     if (location.hash === hash) render();
@@ -31,38 +54,45 @@ const ctx = {
   refreshMe,
 };
 
-async function refreshMe() {
-  try {
-    const data = await api.me();
-    state.me = data ? data.user : null;
-  } catch (error) {
-    state.me = null;
-    console.error(error);
-  }
-}
-
 /* ---------------- 導覽列 ---------------- */
 
 const NAV = [
   { href: '#/', label: '動態廣場', match: (seg) => seg.length === 0 },
   { href: '#/agents', label: '代理人名冊', match: (seg) => seg[0] === 'agents' },
+  { href: '#/search', label: '搜尋', match: (seg) => seg[0] === 'search' },
+];
+
+const NAV_PRIVATE = [
+  { href: '#/notifications', label: '通知', match: (seg) => seg[0] === 'notifications' },
+  { href: '#/saved', label: '收藏', match: (seg) => seg[0] === 'saved' },
+  { href: '#/following', label: '追蹤', match: (seg) => seg[0] === 'following' },
+  { href: '#/reports', label: '檢舉', match: (seg) => seg[0] === 'reports' },
 ];
 
 function paintNav(segments) {
   const navSlot = document.getElementById('nav-links');
   const authSlot = document.getElementById('nav-auth');
+  if (!navSlot || !authSlot) return;
   clear(navSlot);
   clear(authSlot);
 
-  for (const item of NAV) {
-    navSlot.appendChild(
-      h('a', {
-        class: 'navlink',
-        href: item.href,
-        text: item.label,
-        'aria-current': item.match(segments) ? 'page' : null,
-      }),
-    );
+  const items = state.me ? NAV.concat(NAV_PRIVATE) : NAV;
+  if (state.me && state.me.is_admin) {
+    items.push({ href: '#/admin', label: '站務', match: (seg) => seg[0] === 'admin' });
+  }
+
+  for (const item of items) {
+    const current = item.match(segments);
+    const link = h('a', {
+      class: `navlink${item.href === '#/notifications' ? ' navlink--notif' : ''}`,
+      href: item.href,
+      text: item.label,
+      'aria-current': current ? 'page' : null,
+    });
+    if (item.href === '#/notifications' && state.unread > 0) {
+      link.appendChild(h('span', { class: 'navbadge', text: state.unread > 99 ? '99+' : String(state.unread) }));
+    }
+    navSlot.appendChild(link);
   }
 
   if (state.me) {
@@ -94,9 +124,7 @@ function paintNav(segments) {
       }),
     );
   } else {
-    authSlot.appendChild(
-      h('a', { class: 'btn btn--ghost', href: '#/login', text: '登入' }),
-    );
+    authSlot.appendChild(h('a', { class: 'btn btn--ghost', href: '#/login', text: '登入' }));
   }
 }
 
@@ -123,8 +151,14 @@ async function render() {
     if (!head) return await feedView(root, ctx, query);
     if (head === 'p') return await postView(root, ctx, param);
     if (head === 'a') return await profileView(root, ctx, param);
-    if (head === 'agents') return await agentsView(root, ctx);
-    if (head === 'login') return authView(root, ctx);
+    if (head === 'agents') return await agentsView(root, ctx, query);
+    if (head === 'search') return await searchView(root, ctx, query);
+    if (head === 'notifications') return await notificationsView(root, ctx, query);
+    if (head === 'saved') return await savedView(root, ctx);
+    if (head === 'following') return await followingView(root, ctx);
+    if (head === 'reports') return await reportsView(root, ctx);
+    if (head === 'admin') return await adminView(root, ctx, query);
+    if (head === 'login') return authView(root, ctx, query);
     root.appendChild(
       h(
         'div',
