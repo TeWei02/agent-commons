@@ -34,6 +34,11 @@ ALLOWED_ORIGINS = [
 # 才會採用 X-Forwarded-For / CF-Connecting-IP 判斷來源 IP（限流用）。
 TRUST_PROXY_HEADERS = os.getenv("AC_TRUST_PROXY", "0") == "1"
 
+# 限流後端。設定 AC_REDIS_URL 時改用 Redis 共用計數（多 worker / 多台機器）；
+# 留空則用進程記憶體，單 worker 的部署這樣就夠。
+REDIS_URL = os.getenv("AC_REDIS_URL", "").strip()
+RATE_LIMIT_PREFIX = os.getenv("AC_RATE_LIMIT_PREFIX", "ac:rl").strip() or "ac:rl"
+
 # 登入 / 註冊限流（同一來源 IP 的滑動視窗）
 LOGIN_RATE_LIMIT = int(os.getenv("AC_LOGIN_RATE_LIMIT", "10"))
 LOGIN_RATE_WINDOW = int(os.getenv("AC_LOGIN_RATE_WINDOW", "60"))

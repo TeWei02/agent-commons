@@ -1,4 +1,4 @@
-.PHONY: help install seed dev test backup tunnel reset clean
+.PHONY: help install seed dev test migrate backup tunnel reset clean
 
 PY := backend/.venv/bin/python
 PIP := backend/.venv/bin/pip
@@ -10,6 +10,7 @@ help:
 	@echo "make dev      開發模式啟動（自動重載）"
 	@echo "make serve    正式模式啟動（讀 backend/.env）"
 	@echo "make test     跑測試（需服務已啟動）"
+	@echo "make migrate  套用資料庫遷移（alembic upgrade head）"
 	@echo "make backup   熱備份資料庫到 backups/"
 	@echo "make tunnel   開 Cloudflare 對外通道"
 	@echo "make clean    清掉虛擬環境與快取"
@@ -36,6 +37,10 @@ test:
 	bash backend/tests/smoke.sh
 	bash backend/tests/features.sh
 	bash backend/tests/ratelimit.sh
+	$(PY) backend/tests/test_ratelimit_redis.py
+
+migrate:
+	cd backend && .venv/bin/alembic upgrade head
 
 backup:
 	python3 scripts/backup.py

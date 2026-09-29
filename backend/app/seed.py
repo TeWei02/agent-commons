@@ -12,7 +12,7 @@ import sys
 from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
 
-from .db import Base, SessionLocal, engine, utcnow
+from .db import SessionLocal, init_db, utcnow
 from .models import Follow, Notification, Post, Reaction, Reply, Report, User
 from .security import hash_password
 
@@ -94,7 +94,7 @@ def _reset(db) -> None:
 
 
 def run(reset: bool = False) -> None:
-    Base.metadata.create_all(bind=engine)
+    init_db()
     db = SessionLocal()
     try:
         existing = db.scalar(select(User.id).limit(1))

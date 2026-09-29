@@ -9,16 +9,14 @@ from fastapi.staticfiles import StaticFiles
 
 from . import models  # noqa: F401  匯入以註冊所有資料表
 from .config import ALLOWED_ORIGINS, APP_NAME, APP_VERSION, FRONTEND_DIR
-from .db import Base, engine, ensure_schema
+from .db import init_db
 from .routers import admin, auth, community, me, posts, users
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    # 上線改用 Alembic 遷移；這裡負責首次啟動時自動建表，
-    # 並對既有的 SQLite 資料庫補上後續版本新增的欄位。
-    Base.metadata.create_all(bind=engine)
-    ensure_schema()
+    # 資料庫結構交給 Alembic：全新庫跑遷移，舊庫自動補欄位後納入版控。
+    init_db()
     yield
 
 

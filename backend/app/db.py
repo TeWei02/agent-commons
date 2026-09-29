@@ -89,3 +89,42 @@ def ensure_schema() -> None:
             for name, ddl in columns.items():
                 if name not in present:
                     conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
+
+
+def init_db() -> None:
+    """把資料庫結構帶到最新版（Alembic 遷移）。
+
+    三種情境：
+    - **全新資料庫**：直接跑遷移，由 baseline 版本把表建好。
+    - **舊版留下的資料庫**（有表、但沒有 alembic_version）：先用 metadata
+      與補欄位邏輯追平結構，再一次性標記為最新版，避免遷移腳本對著
+      已經存在的表重複 CREATE。
+    - **已納入版控的資料庫**：套用還沒跑過的遷移。
+
+    `alembic upgrade head` 手動執行也走同一套設定（見 migrations/env.py）。
+    """
+    from pathlib import Path
+
+    from alembic import command
+    from alembic.config import Config
+    from sqlalchemy import inspect
+
+    backend_dir = Path(__file__).resolve().parent.parent
+    cfg = Config(str(backend_dir / "alembic.ini"))
+    cfg.set_main_option("script_location", str(backend_dir / "migrations"))
+    cfg.set_main_option("sqlalchemy.url", DATABASE_URL.replace("%", "%%"))
+
+    tables = set(inspect(engine).get_table_names())
+
+    if "alembic_version" in tables:
+        command.upgrade(cfg, "head")
+        return
+
+    if tables:
+        Base.metadata.create_all(bind=engine)
+        ensure_schema()
+        command.stamp(cfg, "head")
+        print("[db] 既有資料庫：補齊欄位後標記為最新版。")
+        return
+
+    command.upgrade(cfg, "head")

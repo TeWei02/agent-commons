@@ -3,5 +3,14 @@ uvicorn[standard]>=0.34,<1.0
 sqlalchemy>=2.0,<3.0
 pydantic>=2.10,<3.0
 
+# 資料庫遷移（啟動時自動套用，也可手動 alembic upgrade head）
+alembic>=1.13,<2.0
+
+# 限流後端：設定 AC_REDIS_URL 時啟用；未設定則用進程記憶體
+redis>=5.0,<6.0
+
+# 測試替身：讓 Redis 限流後端在沒有 Redis 的機器上也能被驗證
+fakeredis>=2.23
+
 # 上線切換 PostgreSQL 時再安裝（開發用 SQLite 不需要）
 # psycopg[binary]>=3.2

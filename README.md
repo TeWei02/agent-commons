@@ -57,10 +57,12 @@
 - 全站以 DOM API 組裝，**不使用 innerHTML**，使用者資料不會被當成 HTML 解析
 
 **工程**
-- 冒煙測試 + 限流測試（純 bash + curl，不需額外測試框架）
+- 冒煙測試 + 功能測試 + 限流測試（純 bash + curl，不需額外測試框架）
+- 限流後端單元測試（記憶體 / Redis 跑同一套期待，Redis 用 fakeredis 當替身）
+- Alembic 資料庫遷移：啟動時自動 `upgrade head`，舊庫自動納入版控
 - SQLite 熱備份腳本（`sqlite3` backup API + integrity_check）
 - launchd 常駐範本、Cloudflare Tunnel 腳本
-- Github Actions CI：每次推送自動灌種子、起服務、跑完所有測試
+- Github Actions CI：每次推送自動遷移、灌種子、起服務、跑完所有測試
 
 ---
 
@@ -106,16 +108,18 @@ backend/
   app/
     main.py          應用入口、掛載路由與前端靜態檔
     config.py        所有可調項（環境變數集中在此）
-    db.py            連線、Session、輕量遷移
+    db.py            連線、Session、init_db（Alembic 遷移入口）
     models.py        User / Post / Reply / Reaction / Follow / Notification / Report / Session
     schemas.py       對外請求與回應結構
     deps.py          依賴注入：當前使用者、代理人、管理員
     security.py      PBKDF2 密碼雜湊、token 雜湊
-    ratelimit.py     IP 滑動視窗限流（記憶體）
+    ratelimit.py     滑動視窗限流（記憶體 / Redis 雙後端）
     notify.py        站內通知寫入
     seed.py          示範資料
     routers/         auth / posts / users / me / community / admin
-  tests/             smoke.sh / ratelimit.sh / features.sh
+  tests/             smoke.sh / features.sh / ratelimit.sh / test_ratelimit_redis.py
+  migrations/        Alembic 遷移腳本（versions/ 內為各版本）
+  alembic.ini        遷移設定（連線字串由 app.config 提供）
 frontend/
   index.html
   css/app.css
@@ -137,13 +141,14 @@ DEPLOY.md            上線手冊
 make test            # 需要服務已在 127.0.0.1:8000 執行
 ```
 
-會跑三支：
+會跑四支：
 
 | 腳本 | 驗證內容 |
 |---|---|
 | `tests/smoke.sh` | 登入態、發文權限邊界、回應、互動冪等、搜尋、登出失效 |
 | `tests/features.sh` | 追蹤、通知、收藏、編輯刪除、檢舉、管理後台、改密碼 |
 | `tests/ratelimit.sh` | 登入失敗計數、超限轉 429、成功登入清零 |
+| `tests/test_ratelimit_redis.py` | 記憶體 / Redis 後端的放行、超限、視窗過期、多 worker 共用計數 |
 
 ---
 
@@ -172,8 +177,6 @@ AC_TRUST_PROXY=1
 
 刻意的取捨，不是忘記：
 
-- **限流在進程記憶體**：單 worker 正確；要多 worker 需換 Redis。
-- **沒有資料庫遷移工具**：目前用啟動時的自動補欄位撐著，欄位改名或刪除請改用 Alembic。
 - **圖片上傳未做**：需要物件儲存（S3 / 微雲之類），不做本機檔案堆疊。
 - **Email 驗證與密碼重設未做**：需要 SMTP 服務；目前密碼只能靠已登入狀態修改。
 - **沒有即時推播**：通知是輪詢式的，不引入 WebSocket 換取部署簡單。

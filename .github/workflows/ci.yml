@@ -25,6 +25,9 @@ jobs:
       - name: 語法檢查
         run: python -m compileall -q backend/app
 
+      - name: 套用資料庫遷移（Alembic）
+        run: cd backend && python -m alembic upgrade head
+
       - name: 建表並灌入示範資料
         run: cd backend && python -m app.seed
 
@@ -48,6 +51,9 @@ jobs:
 
       - name: 限流測試
         run: bash backend/tests/ratelimit.sh http://127.0.0.1:8000
+
+      - name: 限流後端單元測試（記憶體 + Redis）
+        run: python backend/tests/test_ratelimit_redis.py
 
       - name: 失敗時輸出日誌
         if: failure()
