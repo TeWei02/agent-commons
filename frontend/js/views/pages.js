@@ -414,6 +414,7 @@ const ADMIN_TABS = [
   { key: 'overview', label: '站況' },
   { key: 'reports', label: '檢舉佇列' },
   { key: 'users', label: '帳號管理' },
+  { key: 'invites', label: '邀請碼' },
 ];
 
 export async function adminView(mount, ctx, query) {
@@ -445,6 +446,7 @@ export async function adminView(mount, ctx, query) {
       clear(panel);
       if (tab === 'overview') await paintOverview(panel);
       else if (tab === 'reports') await paintReports(panel);
+      else if (tab === 'invites') await paintInvites(panel);
       else await paintUsers(panel);
     } catch (error) {
       clear(panel);
@@ -471,6 +473,19 @@ async function paintOverview(panel) {
       statBlock(data.replies, '回應'),
       statBlock(data.reports_open, '待處理檢舉', data.reports_open ? 'warn' : ''),
       statBlock(data.reports_total, '檢舉總數'),
+      statBlock(data.invites_active ?? 0, '可用邀請碼', data.invite_required && !data.invites_active ? 'warn' : ''),
+      statBlock(data.invites_total ?? 0, '邀請碼總數'),
+    ),
+  );
+  panel.appendChild(
+    h(
+      'div',
+      { class: 'notice' },
+      h('span', {
+        text: data.invite_required
+          ? '本站採邀請制：註冊必須帶一組有效的邀請碼。'
+          : '目前開放註冊，邀請碼不強制；可用 AC_INVITE_REQUIRED=1 開啟邀請制。',
+      }),
     ),
   );
   panel.appendChild(
@@ -480,6 +495,198 @@ async function paintOverview(panel) {
       h('span', { text: '站務權限的授予走 scripts/grant_admin.py，線上不提供提權。' }),
     ),
   );
+}
+
+/* ---------------- 站務後台：邀請碼 ---------------- */
+
+const INVITE_STATUS_TABS = [
+  { key: '', label: '全部' },
+  { key: 'active', label: '可用' },
+  { key: 'used_up', label: '已用完' },
+  { key: 'expired', label: '已過期' },
+  { key: 'revoked', label: '已撤銷' },
+];
+
+const INVITE_STATUS_LABEL = {
+  active: '可用',
+  used_up: '已用完',
+  expired: '已過期',
+  revoked: '已撤銷',
+};
+
+function inviteRow(invite, reload) {
+  const copyBtn = h('button', {
+    class: 'btn btn--sm btn--ghost',
+    type: 'button',
+    text: '複製',
+    on: {
+      click: async () => {
+        try {
+          await navigator.clipboard.writeText(invite.code_display);
+          copyBtn.textContent = '已複製';
+        } catch {
+          copyBtn.textContent = '請手動選取';
+        }
+        setTimeout(() => {
+          copyBtn.textContent = '複製';
+        }, 1600);
+      },
+    },
+  });
+
+  const row = h(
+    'article',
+    { class: 'reportrow' },
+    h(
+      'div',
+      { class: 'reportrow-head' },
+      badge(INVITE_STATUS_LABEL[invite.status] || invite.status, invite.status),
+      h('code', { class: 'invite-code', text: invite.code_display }),
+      copyBtn,
+      h('span', { class: 'reportrow-time', text: `用量 ${invite.used_count}/${invite.max_uses}` }),
+    ),
+    h(
+      'p',
+      { class: 'reportrow-meta' },
+      invite.note ? `備註：${invite.note}` : '沒有備註',
+      invite.expires_at ? ` · ${fullTime(invite.expires_at)} 到期` : ' · 不過期',
+      invite.created_by ? ` · 由 @${invite.created_by.handle} 產生` : ' · 由主機端產生',
+      invite.created_at ? ` · ${timeAgo(invite.created_at)}建立` : '',
+    ),
+  );
+
+  if (invite.status === 'active') {
+    const revokeBtn = h('button', {
+      class: 'btn btn--sm btn--ghost',
+      type: 'button',
+      text: '撤銷',
+      on: {
+        click: async () => {
+          revokeBtn.disabled = true;
+          try {
+            await api.admin.revokeInvite(invite.id);
+            await reload();
+          } catch (error) {
+            reportError(error);
+            revokeBtn.disabled = false;
+          }
+        },
+      },
+    });
+    row.appendChild(h('div', { class: 'reportrow-buttons' }, revokeBtn));
+  }
+
+  return row;
+}
+
+async function paintInvites(panel) {
+  let status = '';
+
+  const note = h('input', {
+    class: 'input',
+    type: 'text',
+    maxlength: '120',
+    placeholder: '備註：發給誰、什麼用途（選填）',
+    'aria-label': '邀請碼備註',
+  });
+  const uses = h('input', {
+    class: 'input input--num',
+    type: 'number',
+    min: '1',
+    max: '500',
+    value: '1',
+    'aria-label': '每組可用次數',
+  });
+  const days = h('input', {
+    class: 'input input--num',
+    type: 'number',
+    min: '1',
+    max: '3650',
+    placeholder: '不限',
+    'aria-label': '有效天數',
+  });
+  const hint = h('p', { class: 'auth-hint', text: '邀請碼狀態由後端統一判定。' });
+  const latest = h('p', { class: 'auth-hint', text: '' });
+  const list = h('div', { class: 'reportlist' });
+
+  const createBtn = h('button', {
+    class: 'btn btn--sm btn--primary',
+    type: 'button',
+    text: '產生一組',
+    on: {
+      click: async () => {
+        createBtn.disabled = true;
+        try {
+          const made = await api.admin.createInvite({
+            note: note.value.trim(),
+            maxUses: Number(uses.value) || 1,
+            days: Number(days.value) || undefined,
+          });
+          note.value = '';
+          days.value = '';
+          latest.textContent = `剛產生：${made.code_display}`;
+          await load();
+        } catch (error) {
+          reportError(error);
+        } finally {
+          createBtn.disabled = false;
+        }
+      },
+    },
+  });
+
+  const tabs = INVITE_STATUS_TABS.map((option) =>
+    tabButton(
+      option.label,
+      option.key === status,
+      () => {
+        if (option.key === status) return;
+        status = option.key;
+        for (const [index, node] of tabs.entries()) {
+          node.setAttribute('aria-selected', String(INVITE_STATUS_TABS[index].key === status));
+        }
+        load();
+      },
+      'tab--sm',
+    ),
+  );
+
+  async function load() {
+    clear(list);
+    list.appendChild(loading());
+    try {
+      const data = await api.admin.invites({ status, limit: 200 });
+      hint.textContent = data.invite_required
+        ? '本站採邀請制：註冊必須帶一組有效的碼。'
+        : '目前開放註冊，邀請碼不強制；把 AC_INVITE_REQUIRED 設為 1 並重啟才會強制。';
+      clear(list);
+      if (!data.items.length) {
+        list.appendChild(emptyState('沒有符合的邀請碼', '按上面的「產生一組」開一組新的。'));
+        return;
+      }
+      for (const invite of data.items) list.appendChild(inviteRow(invite, load));
+    } catch (error) {
+      clear(list);
+      list.appendChild(emptyState('邀請碼載入失敗', '請稍後再試。'));
+      reportError(error);
+    }
+  }
+
+  panel.appendChild(h('div', { class: 'tabs tabs--admin', role: 'tablist' }, tabs));
+  panel.appendChild(
+    h(
+      'div',
+      { class: 'inviteform' },
+      note,
+      h('label', { class: 'field' }, h('span', { class: 'field-label', text: '每組次數' }), uses),
+      h('label', { class: 'field' }, h('span', { class: 'field-label', text: '有效天數' }), days),
+      createBtn,
+    ),
+  );
+  panel.appendChild(hint);
+  panel.appendChild(latest);
+  panel.appendChild(list);
+  await load();
 }
 
 const REPORT_STATUS_TABS = [

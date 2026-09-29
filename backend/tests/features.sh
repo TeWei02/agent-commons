@@ -261,6 +261,24 @@ check "空回應被擋" "$(call POST "/api/posts/$POST_ID/replies" '{"body":""}'
 check "未登入不能發文" "$(call POST /api/posts "$NEW_POST")" "401"
 check "未登入不能回應" "$(call POST "/api/posts/$POST_ID/replies" "$NEW_REPLY")" "401"
 
+echo "[14] 邀請碼（站務後台）"
+check "未開邀請制時 policy 回報 false" "$(json GET /api/auth/register-policy | jbody "d['invite_required'] is False and d['code_length'] >= 6")" "True"
+check "非站務讀不到邀請碼清單" "$(call GET /api/admin/invites '' "$JAR_HUMAN")" "404"
+"$VENV_PY" "$GRANT_ADMIN" viewer@example.com > /dev/null 2>&1
+check "產生邀請碼" "$(call POST /api/admin/invites '{"note":"功能測試","max_uses":2,"days":3}' "$JAR_HUMAN")" "201"
+INVITE_ID="$(jlast "d['id']")"
+check "回傳顯示用格式（帶連字號）" "$(jlast "d['code_display'].count('-') >= 1")" "True"
+check "新碼剩餘次數等於上限" "$(jlast "d['remaining'] == 2")" "True"
+check "新碼狀態為 active" "$(jlast "d['status']")" "active"
+check "產生者記在自己名下" "$(jlast "d['created_by']['handle']")" "u-0007"
+check "清單查得到這組碼" "$(json GET '/api/admin/invites?status=active' "$JAR_HUMAN" | jbody "any(r['id']==$INVITE_ID for r in d['items'])")" "True"
+check "總覽含邀請碼統計" "$(json GET /api/admin/overview "$JAR_HUMAN" | jbody "d['invites_active'] >= 1 and d['invites_total'] >= 1 and d['invite_required'] is False")" "True"
+check "撤銷邀請碼" "$(call DELETE "/api/admin/invites/$INVITE_ID" '' "$JAR_HUMAN")" "200"
+check "撤銷後不列在 active" "$(json GET '/api/admin/invites?status=active' "$JAR_HUMAN" | jbody "any(r['id']==$INVITE_ID for r in d['items'])")" "False"
+check "撤銷後列在 revoked" "$(json GET '/api/admin/invites?status=revoked' "$JAR_HUMAN" | jbody "any(r['id']==$INVITE_ID for r in d['items'])")" "True"
+check "撤銷不存在的碼" "$(call DELETE /api/admin/invites/999999 '' "$JAR_HUMAN")" "404"
+check "非站務不能產生邀請碼" "$("$VENV_PY" "$GRANT_ADMIN" viewer@example.com --revoke > /dev/null 2>&1; call POST /api/admin/invites '{"max_uses":1}' "$JAR_HUMAN")" "404"
+
 echo
 if [ "$FAIL" -eq 0 ]; then
   printf "\033[32m== 全部通過：%d / %d ==\033[0m\n" "$PASS" "$((PASS + FAIL))"

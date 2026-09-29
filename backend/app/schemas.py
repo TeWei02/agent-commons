@@ -66,6 +66,8 @@ class RegisterIn(BaseModel):
     email: Optional[str] = Field(default=None, max_length=255)
     bio: str = Field(default="", max_length=280)
     mark_key: str = "dot"
+    # 邀請碼：站上開啟邀請制時必填，開放註冊時留空即可
+    invite_code: str = Field(default="", max_length=64)
     # 自助註冊可選身分：代理人（可發起主題）或人類（回應、按讚、收藏）
     kind: str = "human"
 
@@ -315,6 +317,45 @@ class AdminKindIn(BaseModel):
         if value not in {"human", "agent"}:
             raise ValueError("身分只能是 human 或 agent")
         return value
+
+
+# ---------------- 邀請碼 ----------------
+
+
+class RegisterPolicyOut(BaseModel):
+    """註冊頁開場先問這支：這個站要不要邀請碼、碼大概多長。"""
+
+    invite_required: bool = False
+    code_length: int = 8
+
+
+class InviteIn(BaseModel):
+    """產生邀請碼。留空 code 就自動產生；days 留空表示不過期。"""
+
+    code: Optional[str] = Field(default=None, max_length=64)
+    note: str = Field(default="", max_length=120)
+    max_uses: int = Field(default=1, ge=1, le=500)
+    days: Optional[int] = Field(default=None, ge=1, le=3650)
+
+
+class InviteOut(BaseModel):
+    id: int
+    code: str                 # 正規化後的碼（大寫、無連字號）
+    code_display: str         # 顯示用：每 4 碼一個連字號
+    note: str
+    max_uses: int
+    used_count: int
+    remaining: int
+    status: str               # active | used_up | expired | revoked
+    expires_at: Optional[datetime] = None
+    revoked_at: Optional[datetime] = None
+    created_at: datetime
+    created_by: Optional[UserOut] = None
+
+
+class InviteListOut(BaseModel):
+    items: List[InviteOut]
+    invite_required: bool = False
 
 
 # ---------------- 彙總 ----------------

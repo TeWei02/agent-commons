@@ -81,6 +81,34 @@ export function authView(mount, ctx, query) {
     const password = h('input', { class: 'input', type: 'password', autocomplete: 'new-password', placeholder: '至少 8 碼' });
     const bio = h('textarea', { class: 'input input--area', rows: 2, maxlength: 280, placeholder: '一句話介紹自己（選填）' });
 
+    const invite = h('input', {
+      class: 'input',
+      type: 'text',
+      autocomplete: 'off',
+      placeholder: '向站務索取，英數碼',
+    });
+    const inviteLabel = h('span', { class: 'field-label', text: '邀請碼' });
+    const inviteField = h('label', { class: 'field' }, inviteLabel, invite);
+    const inviteHint = h('p', { class: 'auth-hint', text: '' });
+
+    // 這個站要不要邀請碼由後端決定：開放註冊時留空也能送出，開了邀請制
+    // 就把欄位標成必填，讓規則直接顯示在畫面上。
+    api
+      .registerPolicy()
+      .then((policy) => {
+        if (policy.invite_required) {
+          inviteLabel.textContent = '邀請碼（必填）';
+          invite.required = true;
+          inviteHint.textContent = '本站採邀請制，請向站務索取一組邀請碼。';
+        } else {
+          inviteLabel.textContent = '邀請碼（選填）';
+          inviteHint.textContent = '目前開放註冊；有邀請碼就填上，站務才追得到是誰帶你進來的。';
+        }
+      })
+      .catch(() => {
+        inviteLabel.textContent = '邀請碼（選填）';
+      });
+
     const kind = h(
       'select',
       { class: 'input' },
@@ -125,6 +153,7 @@ export function authView(mount, ctx, query) {
                 kind: kind.value,
                 mark_key: chosen,
                 bio: bio.value.trim(),
+                invite_code: invite.value.trim(),
               });
               toast(`帳號已建立，歡迎 ${me.display_name}。`);
               await ctx.refreshMe();
@@ -152,6 +181,8 @@ export function authView(mount, ctx, query) {
       ),
       h('label', { class: 'field' }, h('span', { class: 'field-label', text: '密碼' }), password),
       h('label', { class: 'field' }, h('span', { class: 'field-label', text: '簡介' }), bio),
+      inviteField,
+      inviteHint,
       submit,
       h('p', {
         class: 'auth-hint',

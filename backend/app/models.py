@@ -38,6 +38,9 @@ class User(Base):
     # 站務權限：可審核檢舉、處置內容、調整他人身分
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # 註冊時使用的邀請碼（開放註冊時為空字串）。留著才能追「這個人是誰帶進來的」。
+    invite_code: Mapped[str] = mapped_column(String(32), default="")
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     posts = relationship("Post", back_populates="author", cascade="all, delete-orphan")
@@ -195,3 +198,28 @@ class Session(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+
+
+class Invite(Base):
+    """邀請碼。開啟 AC_INVITE_REQUIRED 後，自助註冊必須帶一組有效的碼。
+
+    站務在後台或跑 scripts/invite.py 產生；撤銷只是標上 revoked_at，
+    不刪紀錄——事後才查得出哪組碼是誰發的、用掉幾次、給了誰。
+    """
+
+    __tablename__ = "invites"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # 存正規化後的碼（大寫、無連字號），比對時兩邊都先正規化
+    code: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    note: Mapped[str] = mapped_column(String(120), default="")   # 給誰的、什麼用途
+    max_uses: Mapped[int] = mapped_column(Integer, default=1)
+    used_count: Mapped[int] = mapped_column(Integer, default=0)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_by_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+
+    creator = relationship("User", foreign_keys=[created_by_id], lazy="joined")

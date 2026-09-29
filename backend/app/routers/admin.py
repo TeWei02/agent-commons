@@ -11,12 +11,17 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session as OrmSession
 
+from .. import invites
+from ..config import INVITE_REQUIRED
 from ..db import get_db, utcnow
 from ..deps import admin_user
-from ..models import Post, Reply, Report, User
+from ..models import Invite, Post, Reply, Report, User
 from ..schemas import (
     AdminKindIn,
     AdminUserIn,
+    InviteIn,
+    InviteListOut,
+    InviteOut,
     OkOut,
     ReportHandleIn,
     ReportOut,
@@ -159,6 +164,8 @@ def overview(
     def count(model) -> int:
         return int(db.scalar(select(func.count(model.id))) or 0)
 
+    invite_rows = db.scalars(select(Invite)).all()
+
     return {
         "users": count(User),
         "agents": int(db.scalar(select(func.count(User.id)).where(User.kind == "agent")) or 0),
@@ -168,4 +175,79 @@ def overview(
             db.scalar(select(func.count(Report.id)).where(Report.status == "open")) or 0
         ),
         "reports_total": count(Report),
+        # 邀請碼用不到 SQL 聚合：站上碼的數量不大，狀態又要跟現在時間比，
+        # 拉回來用同一套 status_of 判定，才不會跟註冊端的規則分岔。
+        "invites_active": sum(1 for row in invite_rows if invites.status_of(row) == invites.ACTIVE),
+        "invites_total": len(invite_rows),
+        "invite_required": INVITE_REQUIRED,
     }
+
+
+# ---------------- 邀請碼 ----------------
+
+INVITE_STATUSES = {invites.ACTIVE, invites.USED_UP, invites.EXPIRED, invites.REVOKED}
+
+
+def _serialize_invite(invite: Invite) -> InviteOut:
+    return InviteOut(
+        id=invite.id,
+        code=invite.code,
+        code_display=invites.format_code(invite.code),
+        note=invite.note,
+        max_uses=invite.max_uses,
+        used_count=invite.used_count,
+        remaining=invites.remaining_uses(invite),
+        status=invites.status_of(invite),
+        expires_at=invite.expires_at,
+        revoked_at=invite.revoked_at,
+        created_at=invite.created_at,
+        created_by=UserOut.model_validate(invite.creator) if invite.creator else None,
+    )
+
+
+@router.get("/invites", response_model=InviteListOut)
+def list_invites(
+    status: str = Query(""),
+    limit: int = Query(100, ge=1, le=500),
+    db: OrmSession = Depends(get_db),
+    _admin: User = Depends(admin_user),
+):
+    rows = invites.list_all(db, status=status if status in INVITE_STATUSES else "", limit=limit)
+    return InviteListOut(
+        items=[_serialize_invite(row) for row in rows],
+        invite_required=INVITE_REQUIRED,
+    )
+
+
+@router.post("/invites", response_model=InviteOut, status_code=201)
+def create_invite(
+    payload: InviteIn,
+    db: OrmSession = Depends(get_db),
+    admin: User = Depends(admin_user),
+):
+    try:
+        invite = invites.create(
+            db,
+            code=payload.code,
+            note=payload.note,
+            max_uses=payload.max_uses,
+            days=payload.days,
+            created_by=admin,
+        )
+    except invites.InviteError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return _serialize_invite(invite)
+
+
+@router.delete("/invites/{invite_id}", response_model=InviteOut)
+def revoke_invite(
+    invite_id: int,
+    db: OrmSession = Depends(get_db),
+    _admin: User = Depends(admin_user),
+):
+    """撤銷只是標記，不刪紀錄——事後才查得出哪組碼給了誰、用掉幾次。"""
+    invite = db.get(Invite, invite_id)
+    if invite is None:
+        raise HTTPException(status_code=404, detail="找不到這組邀請碼")
+    invites.revoke(db, invite)
+    return _serialize_invite(invite)

@@ -55,6 +55,9 @@ jobs:
       - name: 限流後端單元測試（記憶體 + Redis）
         run: python backend/tests/test_ratelimit_redis.py
 
+      - name: 邀請碼單元測試
+        run: python backend/tests/test_invites.py
+
       - name: 失敗時輸出日誌
         if: failure()
         run: cat backend/server.log || true

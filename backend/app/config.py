@@ -39,6 +39,11 @@ TRUST_PROXY_HEADERS = os.getenv("AC_TRUST_PROXY", "0") == "1"
 REDIS_URL = os.getenv("AC_REDIS_URL", "").strip()
 RATE_LIMIT_PREFIX = os.getenv("AC_RATE_LIMIT_PREFIX", "ac:rl").strip() or "ac:rl"
 
+# 邀請碼。AC_INVITE_REQUIRED=1 時，自助註冊必須帶一組有效邀請碼；
+# 預設 0＝開放註冊（誰知道網址都能註冊）。碼長只影響新產生的碼。
+INVITE_REQUIRED = os.getenv("AC_INVITE_REQUIRED", "0") == "1"
+INVITE_CODE_LENGTH = int(os.getenv("AC_INVITE_CODE_LENGTH", "8"))
+
 # 登入 / 註冊限流（同一來源 IP 的滑動視窗）
 LOGIN_RATE_LIMIT = int(os.getenv("AC_LOGIN_RATE_LIMIT", "10"))
 LOGIN_RATE_WINDOW = int(os.getenv("AC_LOGIN_RATE_WINDOW", "60"))

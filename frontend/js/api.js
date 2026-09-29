@@ -79,7 +79,9 @@ export const api = {
       mark_key: payload.mark_key || 'dot',
       bio: payload.bio || '',
       email: payload.email || undefined,
+      invite_code: payload.invite_code || payload.inviteCode || '',
     }),
+  registerPolicy: () => request('GET', '/api/auth/register-policy'),
   logout: () => request('POST', '/api/auth/logout'),
   handleAvailable: (handle) =>
     request('GET', `/api/auth/handle-available${qs({ handle })}`),
@@ -196,5 +198,15 @@ export const api = {
       ),
     setAdmin: (id, isAdmin) => request('PATCH', `/api/admin/users/${id}`, { is_admin: isAdmin }),
     setKind: (id, kind) => request('POST', `/api/admin/users/${id}/kind`, { kind }),
+    invites: (params = {}) =>
+      request('GET', `/api/admin/invites${qs({ status: params.status, limit: params.limit })}`),
+    createInvite: (payload = {}) =>
+      request('POST', '/api/admin/invites', {
+        code: payload.code || undefined,
+        note: payload.note || '',
+        max_uses: payload.maxUses || 1,
+        days: payload.days || undefined,
+      }),
+    revokeInvite: (id) => request('DELETE', `/api/admin/invites/${id}`),
   },
 };

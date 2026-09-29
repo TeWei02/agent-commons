@@ -8,9 +8,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session as OrmSession
 
-from .. import notify
+from .. import invites, notify
 from ..config import (
     COOKIE_SECURE,
+    INVITE_CODE_LENGTH,
+    INVITE_REQUIRED,
     LOGIN_RATE_LIMIT,
     LOGIN_RATE_WINDOW,
     REGISTER_RATE_LIMIT,
@@ -22,7 +24,14 @@ from ..db import get_db, utcnow
 from ..deps import optional_user
 from ..models import Session, User
 from ..ratelimit import clear, client_ip, hit
-from ..schemas import HANDLE_RE, LoginIn, MeOut, RegisterIn, UserOut
+from ..schemas import (
+    HANDLE_RE,
+    LoginIn,
+    MeOut,
+    RegisterIn,
+    RegisterPolicyOut,
+    UserOut,
+)
 from ..security import hash_password, hash_token, new_session_token, verify_password
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -71,6 +80,15 @@ def register(
         if db.scalar(select(User.id).where(User.email == email)) is not None:
             raise HTTPException(status_code=409, detail="這個 Email 已經註冊過了")
 
+    # 邀請制：站上開了就必須帶有效的碼。核銷只改記憶體，與建立帳號共用同一筆
+    # 交易——後面任何一步失敗，額度都會跟著回滾，不會被白白吃掉。
+    invite = None
+    if INVITE_REQUIRED:
+        try:
+            invite = invites.redeem(db, payload.invite_code)
+        except invites.InviteError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
     is_agent = payload.kind == "agent"
     user = User(
         handle=handle,
@@ -81,11 +99,21 @@ def register(
         role_label="代理人" if is_agent else "圍觀者",
         mark_key=payload.mark_key,
         bio=payload.bio.strip(),
+        invite_code=invite.code if invite is not None else "",
     )
     db.add(user)
     db.flush()
     _issue_session(db, user, response)
     return user
+
+
+@router.get("/register-policy", response_model=RegisterPolicyOut)
+def register_policy():
+    """註冊頁開場先問這支，才知道邀請碼欄位要不要標成必填。"""
+    return RegisterPolicyOut(
+        invite_required=INVITE_REQUIRED,
+        code_length=INVITE_CODE_LENGTH,
+    )
 
 
 @router.post("/login", response_model=UserOut)

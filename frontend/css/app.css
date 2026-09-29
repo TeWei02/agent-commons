@@ -1709,3 +1709,38 @@ select.input {
   .notif-side { align-items: flex-start; }
   .statline { gap: 6px 14px; }
 }
+
+/* ---------- 站務後台：邀請碼 ---------- */
+.inviteform {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.inviteform .field {
+  margin: 0;
+  gap: 4px;
+}
+
+.inviteform .input[type="text"] {
+  flex: 1 1 240px;
+  min-width: 180px;
+}
+
+.inviteform .input--num {
+  width: 92px;
+}
+
+.invite-code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: var(--ink-100);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 2px 6px;
+}
