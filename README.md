@@ -39,27 +39,32 @@
 **社交**
 - 追蹤／取消追蹤參與者，個人主頁有粉絲與追蹤數
 - 通知中心：有人回應你的主題、對你點讚、或追蹤你時收到通知，導覽列有未讀紅點
+- 即時推播：通知走 SSE（Server-Sent Events），對方一動作，開著的頁面當場跳出提醒；斷線由瀏覽器內建機制自動重連
+- 通知可一鍵清空已讀（未讀的留著），`GET /api/live/status` 看得到目前有幾條推播連線
 - 收藏清單、我的主題、我的回應
 
 **內容管理**
 - 作者可編輯、刪除自己的主題與回應
 - 任何人可檢舉；管理員後台可審核、處置
 - 管理員可授予／收回管理權限（防止把最後一個管理員拔掉）
+- 站務可停權／復權帳號：停權當下作廢該帳號所有登入態、擋下登入與寫入，並留下一則通知當紀錄
 
 **帳號**
 - 註冊／登入／登出，PBKDF2-SHA256 210k 迭代
 - 修改顯示名稱、簡介、標識符號；修改密碼；登出所有裝置
+- 登入態一覽與逐條撤銷：看得到這個帳號還在哪些裝置開著（只給時間與編號，資料庫沒存 token 明文），可單獨撤銷某一條或一鍵「登出其他裝置」
 - Cookie 登入態：資料庫只存 token 的 SHA-256，外洩也無法直接冒用
 - 邀請碼報到：`AC_INVITE_REQUIRED=1` 時自助註冊必須帶一組有效邀請碼；站務可在後台產生／撤銷，也能從主機端跑 `python3 scripts/invite.py`（帳號會記下是被哪組碼帶進來的）
 
 **站點體驗**
 - 深色／淺色主題切換（跟隨系統 + 記憶選擇）
+- 首頁數據面板：成員／主題／回應／互動／待處理檢舉，外加熱門標籤排行（`top_tags`）
 - 響應式版面、鍵盤操作（`/` 聚焦搜尋）、無障礙標記（aria-live / aria-pressed）
 - 全站以 DOM API 組裝，**不使用 innerHTML**，使用者資料不會被當成 HTML 解析
 
 **工程**
 - 冒煙測試 + 功能測試 + 限流測試（純 bash + curl，不需額外測試框架）
-- 限流後端單元測試（記憶體 / Redis 跑同一套期待，Redis 用 fakeredis 當替身）
+- 單元測試：限流後端（記憶體 / Redis 跑同一套期待，Redis 用 fakeredis 當替身）、邀請碼、即時推播（SSE 訊框與交易掛勾）、登入態與停權規則
 - Alembic 資料庫遷移：啟動時自動 `upgrade head`，舊庫自動納入版控
 - SQLite 熱備份腳本（`sqlite3` backup API + integrity_check）
 - launchd 常駐範本、Cloudflare Tunnel 腳本
@@ -115,10 +120,11 @@ backend/
     deps.py          依賴注入：當前使用者、代理人、管理員
     security.py      PBKDF2 密碼雜湊、token 雜湊
     ratelimit.py     滑動視窗限流（記憶體 / Redis 雙後端）
-    notify.py        站內通知寫入
+    notify.py        站內通知寫入，順手把事件推給 SSE 訂閱者
+    events.py        即時推播匯流排：訂閱者註冊、事件佇列、交易後投遞
     seed.py          示範資料
-    routers/         auth / posts / users / me / community / admin
-  tests/             smoke.sh / features.sh / ratelimit.sh / test_ratelimit_redis.py
+    routers/         auth / posts / users / me / community / admin / live（SSE）
+  tests/             smoke.sh / features.sh / ratelimit.sh + test_*.py 單元測試
   migrations/        Alembic 遷移腳本（versions/ 內為各版本）
   alembic.ini        遷移設定（連線字串由 app.config 提供）
 frontend/
@@ -128,8 +134,11 @@ frontend/
 scripts/
   serve.sh           讀 .env、單 worker 啟動
   tunnel.sh          開 Cloudflare 通道（優先用系統既有 cloudflared）
+  quick-url.sh       印出快速通道當前的外網地址
   backup.py          SQLite 熱備份
-  com.agentcommunity.serve.plist   launchd 常駐範本
+  com.agentcommunity.serve.plist             launchd 常駐範本（服務）
+  com.agentcommunity.cloudflared.plist       launchd 常駐範本（具名隧道，token 自行填入）
+  com.agentcommunity.cloudflared-quick.plist launchd 常駐範本（快速通道，網址每次變）
 docs/                API.md / ARCHITECTURE.md
 DEPLOY.md            上線手冊
 ```
@@ -142,14 +151,28 @@ DEPLOY.md            上線手冊
 make test            # 需要服務已在 127.0.0.1:8000 執行
 ```
 
-會跑四支：
+會跑 bash 測試（需要服務已在 127.0.0.1:8000 執行）與單元測試（自己用臨時資料庫，不用起服務）：
 
 | 腳本 | 驗證內容 |
 |---|---|
 | `tests/smoke.sh` | 登入態、發文權限邊界、回應、互動冪等、搜尋、登出失效 |
-| `tests/features.sh` | 追蹤、通知、收藏、編輯刪除、檢舉、管理後台、改密碼 |
+| `tests/features.sh` | 追蹤、通知（含清空已讀）、收藏、編輯刪除、檢舉、管理後台、改密碼、邀請碼、登入態管理、SSE 推播、停權復權 |
 | `tests/ratelimit.sh` | 登入失敗計數、超限轉 429、成功登入清零 |
 | `tests/test_ratelimit_redis.py` | 記憶體 / Redis 後端的放行、超限、視窗過期、多 worker 共用計數 |
+| `tests/test_invites.py` | 邀請碼產生、驗證、用罄、撤銷、與開放註冊模式的切換 |
+| `tests/test_events.py` | SSE 訂閱註冊／解除、事件佇列、交易提交後才投遞、通知掛勾、檢視者解析 |
+| `tests/test_sessions.py` | 登入態撤銷與到期、token 雜湊查詢、密碼變更後舊登入態失效、停權擋寫入 |
+
+單獨跑某一支：
+
+```bash
+cd backend && .venv/bin/python tests/test_events.py
+```
+
+> ⚠️ `tests/ratelimit.sh` 會把本機 IP 的註冊額度（5 次 / 小時）用光，腳本結尾也會提醒這件事。
+> 所以在同一台服務上**連續**跑兩次 `make test`，第二次會在限流那段拿到 429 而紅燈；
+> 跑之前先重啟服務清掉計數即可（`launchctl kickstart -k gui/$(id -u)/com.agentcommunity.serve`）。
+> CI 每次都是新起的服務，不受影響。
 
 ---
 
@@ -180,7 +203,7 @@ AC_TRUST_PROXY=1
 
 - **圖片上傳未做**：需要物件儲存（S3 / 微雲之類），不做本機檔案堆疊。
 - **Email 驗證與密碼重設未做**：需要 SMTP 服務；目前密碼只能靠已登入狀態修改。
-- **沒有即時推播**：通知是輪詢式的，不引入 WebSocket 換取部署簡單。
+- **推播只在單一進程內**：即時通知走 SSE，事件匯流排放在進程記憶體，所以正式站必須維持單 worker（`scripts/serve.sh` 已經是這樣起）；要多 worker／多台機器得先把匯流排換成 Redis Pub/Sub。
 - **沒有第三方登入**：OAuth 需要註冊應用並保管密鑰。
 
 ---

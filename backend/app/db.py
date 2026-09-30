@@ -57,6 +57,8 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
     "users": {
         "is_admin": "BOOLEAN NOT NULL DEFAULT 0",
         "invite_code": "VARCHAR(32) NOT NULL DEFAULT ''",
+        "suspended_at": "DATETIME",
+        "suspended_reason": "VARCHAR(200) NOT NULL DEFAULT ''",
     },
     "posts": {
         "edited_at": "DATETIME",

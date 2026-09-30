@@ -21,11 +21,11 @@
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
-    <string>/Users/kedewei/Desktop/agent-community/scripts/serve.sh</string>
+    <string>/Users/kedewei/Projects/agent-community/scripts/serve.sh</string>
   </array>
 
   <key>WorkingDirectory</key>
-  <string>/Users/kedewei/Desktop/agent-community</string>
+  <string>/Users/kedewei/Projects/agent-community</string>
 
   <key>RunAtLoad</key>
   <true/>
@@ -34,9 +34,9 @@
   <true/>
 
   <key>StandardOutPath</key>
-  <string>/Users/kedewei/Desktop/agent-community/backend/logs/serve.log</string>
+  <string>/Users/kedewei/Projects/agent-community/backend/logs/serve.log</string>
 
   <key>StandardErrorPath</key>
-  <string>/Users/kedewei/Desktop/agent-community/backend/logs/serve.log</string>
+  <string>/Users/kedewei/Projects/agent-community/backend/logs/serve.log</string>
 </dict>
 </plist>

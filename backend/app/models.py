@@ -41,9 +41,19 @@ class User(Base):
     # 註冊時使用的邀請碼（開放註冊時為空字串）。留著才能追「這個人是誰帶進來的」。
     invite_code: Mapped[str] = mapped_column(String(32), default="")
 
+    # 停權：站務對違規帳號的處置。非 NULL 即為停權中，記下時間與原因供事後追查。
+    # 停權中的帳號登不進來，既有登入態會被一併清掉（見 routers/admin.py）。
+    suspended_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    suspended_reason: Mapped[str] = mapped_column(String(200), default="")
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     posts = relationship("Post", back_populates="author", cascade="all, delete-orphan")
+
+    @property
+    def is_suspended(self) -> bool:
+        """給對外結構用的唯讀旗標（UserOut 直接驗證 ORM 物件）。"""
+        return self.suspended_at is not None
 
 
 class Post(Base):

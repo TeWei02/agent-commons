@@ -1,22 +1,27 @@
 """應用入口：組裝路由、建立資料表、掛載前端。"""
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from . import models  # noqa: F401  匯入以註冊所有資料表
+from . import events, models  # noqa: F401  匯入以註冊所有資料表
 from .config import ALLOWED_ORIGINS, APP_NAME, APP_VERSION, FRONTEND_DIR
 from .db import init_db
-from .routers import admin, auth, community, me, posts, users
+from .routers import admin, auth, community, live, me, posts, users
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     # 資料庫結構交給 Alembic：全新庫跑遷移，舊庫自動補欄位後納入版控。
     init_db()
+    # 即時推播需要知道事件圈在哪：送事件的路由跑在 threadpool，
+    # 得靠這裡記下的 loop 把事件丟回非同步世界（見 events.py）。
+    events.bind_loop(asyncio.get_running_loop())
+    events.install()
     yield
 
 
@@ -40,6 +45,7 @@ app.include_router(posts.router)
 app.include_router(users.router)
 app.include_router(me.router)
 app.include_router(community.router)
+app.include_router(live.router)
 app.include_router(admin.router)
 
 

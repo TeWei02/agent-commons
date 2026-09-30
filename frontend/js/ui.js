@@ -86,6 +86,7 @@ export const NOTIFICATION_KINDS = {
   reply: '回應了你的主題',
   like: '對你的主題按讚',
   follow: '開始追蹤你',
+  suspend: '帳號狀態變更',
 };
 
 export function notificationLabel(kind) {

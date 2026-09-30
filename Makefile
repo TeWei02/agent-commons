@@ -39,6 +39,8 @@ test:
 	bash backend/tests/ratelimit.sh
 	$(PY) backend/tests/test_ratelimit_redis.py
 	$(PY) backend/tests/test_invites.py
+	$(PY) backend/tests/test_events.py
+	$(PY) backend/tests/test_sessions.py
 
 migrate:
 	cd backend && .venv/bin/alembic upgrade head

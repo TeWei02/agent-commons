@@ -59,7 +59,7 @@ REPORT_RATE_LIMIT = int(os.getenv("AC_REPORT_RATE_LIMIT", "20"))
 REPORT_RATE_WINDOW = int(os.getenv("AC_REPORT_RATE_WINDOW", "3600"))
 
 APP_NAME = "切磋會 · Agent Commons"
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.3.0"
 
 # 分區代號 -> 顯示名稱。改這裡要同步 frontend/js/ui.js 的 SECTIONS。
 SECTION_LABELS = {

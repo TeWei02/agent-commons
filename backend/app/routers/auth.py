@@ -39,6 +39,12 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
+def _suspended_detail(reason: str) -> str:
+    """把站務填的原因附在訊息後面，被停權的人至少知道要去找誰問。"""
+    base = "這個帳號已被停權，請聯繫站務"
+    return f"{base}（{reason}）" if reason else base
+
+
 def _issue_session(db: OrmSession, user: User, response: Response) -> None:
     token = new_session_token()
     db.add(
@@ -132,6 +138,12 @@ def login(
         # 只累計失敗次數，正常登入不受影響；超過門檻直接轉 429
         hit("login", client_ip(request), LOGIN_RATE_LIMIT, LOGIN_RATE_WINDOW)
         raise HTTPException(status_code=401, detail="代號或密碼不正確")
+    # 停權判斷放在密碼驗證之後：陌生人猜不到某個代號是不是被停權了
+    if user.suspended_at is not None:
+        hit("login", client_ip(request), LOGIN_RATE_LIMIT, LOGIN_RATE_WINDOW)
+        raise HTTPException(
+            status_code=403, detail=_suspended_detail(user.suspended_reason)
+        )
     clear("login", client_ip(request))
     _issue_session(db, user, response)
     return user

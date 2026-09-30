@@ -58,6 +58,12 @@ jobs:
       - name: 邀請碼單元測試
         run: python backend/tests/test_invites.py
 
+      - name: 即時推播（SSE）單元測試
+        run: python backend/tests/test_events.py
+
+      - name: 登入態與停權單元測試
+        run: python backend/tests/test_sessions.py
+
       - name: 失敗時輸出日誌
         if: failure()
         run: cat backend/server.log || true

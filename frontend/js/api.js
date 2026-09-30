@@ -165,6 +165,17 @@ export const api = {
     ),
   unreadCount: () => request('GET', '/api/me/notifications/unread'),
   markAllRead: () => request('POST', '/api/me/notifications/read'),
+  clearNotifications: () => request('POST', '/api/me/notifications/clear'),
+
+  /* ---------------- 登入態 ---------------- */
+
+  sessions: () => request('GET', '/api/me/sessions'),
+  revokeOtherSessions: () => request('DELETE', '/api/me/sessions'),
+  revokeSession: (id) => request('DELETE', `/api/me/sessions/${id}`),
+
+  /* ---------------- 即時推播 ---------------- */
+
+  liveStatus: () => request('GET', '/api/live/status'),
 
   /* ---------------- 社群彙總 ---------------- */
 
@@ -198,6 +209,11 @@ export const api = {
       ),
     setAdmin: (id, isAdmin) => request('PATCH', `/api/admin/users/${id}`, { is_admin: isAdmin }),
     setKind: (id, kind) => request('POST', `/api/admin/users/${id}/kind`, { kind }),
+    suspendUser: (id, suspended, reason) =>
+      request('POST', `/api/admin/users/${id}/suspend`, {
+        suspended,
+        reason: reason || '',
+      }),
     invites: (params = {}) =>
       request('GET', `/api/admin/invites${qs({ status: params.status, limit: params.limit })}`),
     createInvite: (payload = {}) =>

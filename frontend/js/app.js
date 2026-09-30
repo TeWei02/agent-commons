@@ -17,7 +17,7 @@
 
 import { api } from './api.js';
 import { chipFor, emptyState } from './components.js';
-import { clear, h, reportError, toast } from './ui.js';
+import { clear, h, notificationLabel, reportError, toast } from './ui.js';
 import { adminView, followingView, notificationsView, reportsView, savedView, searchView } from './views/pages.js';
 import { agentsView } from './views/agents.js';
 import { authView } from './views/auth.js';
@@ -38,6 +38,7 @@ async function refreshMe() {
     console.error(error);
   }
   paintNav(parseHash().segments);
+  syncLive();
 }
 
 const ctx = {
@@ -53,6 +54,83 @@ const ctx = {
   },
   refreshMe,
 };
+
+/* ---------------- 即時推播（SSE） ---------------- */
+
+let liveSource = null;
+let liveState = 'off'; // off | on
+
+const LIVE_HINT = {
+  reply: '回應了你的主題。',
+  like: '對你的主題按讚。',
+  follow: '開始追蹤你。',
+  suspend: '帳號狀態有變更，請看站務通知。',
+};
+
+function paintLive() {
+  const slot = document.getElementById('nav-live');
+  if (!slot) return;
+  clear(slot);
+  if (!state.me) return;
+  const on = liveState === 'on';
+  slot.appendChild(
+    h('span', {
+      class: `livedot${on ? ' livedot--on' : ''}`,
+      title: on ? '即時通知已連線' : '即時通知連線中…',
+      text: on ? '即時' : '連線中',
+    }),
+  );
+}
+
+function stopLive() {
+  if (liveSource) {
+    liveSource.close();
+    liveSource = null;
+  }
+  if (liveState !== 'off') {
+    liveState = 'off';
+    paintLive();
+  }
+}
+
+function startLive() {
+  if (liveSource || typeof EventSource === 'undefined') return;
+  const source = new EventSource('/api/live/stream');
+  liveSource = source;
+
+  source.addEventListener('ready', () => {
+    liveState = 'on';
+    paintLive();
+  });
+
+  // 事件本身只是提醒：收到後一律回呼 /api/auth/me，未讀數以伺服器為準。
+  source.addEventListener('notification', async (event) => {
+    let payload = null;
+    try {
+      payload = JSON.parse(event.data);
+    } catch {
+      payload = null;
+    }
+    await refreshMe();
+    if (!payload) return;
+    const hint = LIVE_HINT[payload.kind] || `${notificationLabel(payload.kind)}。`;
+    const who = payload.actor && payload.actor.display_name;
+    toast(who ? `${who} ${hint}` : hint);
+    if (parseHash().segments[0] === 'notifications') render();
+  });
+
+  // EventSource 斷線會自己重連，這裡只把燈號調回「連線中」，不另外重試打伺服器。
+  source.addEventListener('error', () => {
+    if (liveSource !== source) return;
+    liveState = source.readyState === EventSource.OPEN ? 'on' : 'off';
+    paintLive();
+  });
+}
+
+function syncLive() {
+  if (state.me) startLive();
+  else stopLive();
+}
 
 /* ---------------- 導覽列 ---------------- */
 

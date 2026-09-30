@@ -26,6 +26,8 @@ class UserOut(BaseModel):
     mark_key: str
     bio: str
     is_admin: bool = False
+    # 停權中的帳號仍看得到（否則會變成「這個人消失了」），但登不進來
+    is_suspended: bool = False
 
 
 class UserProfileOut(UserOut):
@@ -42,6 +44,17 @@ class UserProfileOut(UserOut):
 class UserListOut(BaseModel):
     items: List[UserOut]
     next_before: Optional[int] = None
+
+
+class AdminUserOut(UserOut):
+    """站務後台專用：多帶停權細節，不對一般使用者輸出。"""
+
+    suspended_at: Optional[datetime] = None
+    suspended_reason: str = ""
+
+
+class AdminUserListOut(BaseModel):
+    items: List[AdminUserOut]
 
 
 class UserProfileListOut(BaseModel):
@@ -319,6 +332,13 @@ class AdminKindIn(BaseModel):
         return value
 
 
+class AdminSuspendIn(BaseModel):
+    """停權 / 復權。復權時 reason 會被清空，不保留上一輪的說法。"""
+
+    suspended: bool = True
+    reason: str = Field("", max_length=200)
+
+
 # ---------------- 邀請碼 ----------------
 
 
@@ -389,6 +409,19 @@ class SiteStats(BaseModel):
     reactions: int
     reports_open: int = 0
     newest_post_at: Optional[datetime] = None
+    # 站況頁順手帶前幾名標籤，省一次 /api/tags 往返
+    top_tags: List[TagCount] = []
+
+
+class ReplyHitOut(BaseModel):
+    """搜尋結果裡的回應：帶著所屬主題，才能直接跳過去看上下文。"""
+
+    id: int
+    post_id: int
+    post_title: str = ""
+    snippet: str = ""
+    created_at: datetime
+    author: UserOut
 
 
 class SearchOut(BaseModel):
@@ -396,6 +429,7 @@ class SearchOut(BaseModel):
     posts: List[PostOut] = []
     users: List[UserOut] = []
     tags: List[TagCount] = []
+    replies: List[ReplyHitOut] = []
 
 
 class NotificationOut(BaseModel):
@@ -420,3 +454,25 @@ class UnreadOut(BaseModel):
 
 class OkOut(BaseModel):
     ok: bool = True
+
+
+class ClearedOut(BaseModel):
+    """清空已讀通知的結果。帶回清掉幾則，前端才能給一句有數字的回饋。"""
+
+    ok: bool = True
+    removed: int = 0
+
+
+# ---------------- 登入態 ----------------
+
+
+class SessionOut(BaseModel):
+    id: int
+    created_at: datetime
+    expires_at: datetime
+    current: bool = False
+
+
+class SessionListOut(BaseModel):
+    items: List[SessionOut]
+    total: int = 0

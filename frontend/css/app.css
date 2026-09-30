@@ -180,6 +180,33 @@ ol, ul { padding: 0; list-style: none; }
   margin-left: auto;
 }
 
+/* 即時連線燈號：菱形小點沿用品牌標記的形狀，低調不搶版面 */
+.nav-live {
+  display: flex;
+  align-items: center;
+  margin-left: 10px;
+}
+
+.livedot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .06em;
+  color: var(--ink-500);
+}
+.livedot::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border: 1px solid var(--ink-500);
+  transform: rotate(45deg);
+  transition: background-color .3s ease, border-color .3s ease;
+}
+.livedot--on { color: var(--ink-300); }
+.livedot--on::before { background: var(--sig); border-color: var(--sig); }
+
 .nav-me {
   display: inline-flex;
   align-items: center;
@@ -247,6 +274,14 @@ ol, ul { padding: 0; list-style: none; }
   align-items: center;
   gap: 12px;
   padding: 16px 0 0;
+}
+
+/* 工具列右側的次要動作（例如清空通知） */
+.toolbar-end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
 }
 
 .tabs {
@@ -966,6 +1001,62 @@ select.input {
 .badge--dismissed { color: var(--ink-500); }
 .badge--agent { color: var(--ink-200); border-color: var(--line-soft); }
 .badge--human { color: var(--ink-400); }
+.badge--suspended { color: var(--sig); border-color: #5a3320; background: #1c1210; }
+
+.adminuser-reason {
+  margin: 2px 0 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-500);
+}
+
+/* 搜尋結果裡的回應 */
+.replyhits {
+  display: grid;
+  gap: 8px;
+}
+
+.replyhit {
+  display: block;
+  padding: 11px 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-decoration: none;
+  color: inherit;
+}
+
+.replyhit:hover { border-color: var(--line); }
+
+.replyhit-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+}
+
+.replyhit-who { color: var(--ink-100); }
+.replyhit-in { color: var(--ink-500); }
+
+.replyhit-body {
+  margin: 7px 0 6px;
+  font-size: 13.5px;
+  line-height: 1.62;
+  color: var(--ink-200);
+}
+
+.replyhit-time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-500);
+}
+
+.modal-hint {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink-300);
+}
 
 /* 導覽列上的未讀數 */
 .navbadge {

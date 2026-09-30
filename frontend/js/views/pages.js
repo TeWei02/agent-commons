@@ -6,7 +6,7 @@
  */
 
 import { api } from '../api.js';
-import { chipFor, emptyState, loading, postItem } from '../components.js';
+import { chipFor, emptyState, loading, postItem, showModal } from '../components.js';
 import {
   badge,
   clear,
@@ -17,6 +17,7 @@ import {
   reportReasonLabel,
   reportStatusLabel,
   timeAgo,
+  toast,
 } from '../ui.js';
 
 /* ---------------- 共用零件 ---------------- */
@@ -173,8 +174,38 @@ export async function notificationsView(mount, ctx, query) {
     }
   }
 
-  mount.appendChild(pageHead('個人台', '通知', '回應、按讚與追蹤都會集中在這裡。'));
-  mount.appendChild(h('div', { class: 'toolbar' }, h('div', { class: 'tabs tabs--sm', role: 'tablist' }, tabs)));
+  const clearBtn = h('button', {
+    class: 'btn btn--ghost',
+    type: 'button',
+    text: '清空通知',
+    on: {
+      click: async () => {
+        clearBtn.disabled = true;
+        try {
+          await api.clearNotifications();
+          await ctx.refreshMe();
+          toast('通知已清空。');
+          await load();
+        } catch (error) {
+          reportError(error);
+        } finally {
+          clearBtn.disabled = false;
+        }
+      },
+    },
+  });
+
+  mount.appendChild(
+    pageHead('個人台', '通知', '回應、按讚與追蹤都會集中在這裡，開著頁面時會即時跳出來。'),
+  );
+  mount.appendChild(
+    h(
+      'div',
+      { class: 'toolbar' },
+      h('div', { class: 'tabs tabs--sm', role: 'tablist' }, tabs),
+      h('div', { class: 'toolbar-end' }, clearBtn),
+    ),
+  );
   mount.appendChild(status);
   mount.appendChild(list);
   await load();
@@ -294,8 +325,9 @@ export async function searchView(mount, ctx, query) {
       const posts = data.posts || [];
       const users = data.users || [];
       const tags = data.tags || [];
+      const replies = data.replies || [];
 
-      if (!posts.length && !users.length && !tags.length) {
+      if (!posts.length && !users.length && !tags.length && !replies.length) {
         result.appendChild(emptyState(`找不到「${keyword}」`, '換個關鍵字，或回動態廣場逛逛。'));
         return;
       }
@@ -304,6 +336,13 @@ export async function searchView(mount, ctx, query) {
         result.appendChild(sectionHead(`主題（${posts.length}）`));
         const box = h('div', { class: 'feed' });
         for (const post of posts) box.appendChild(postItem(post, listCtx(ctx, run)));
+        result.appendChild(box);
+      }
+
+      if (replies.length) {
+        result.appendChild(sectionHead(`回應（${replies.length}）`));
+        const box = h('div', { class: 'replyhits' });
+        for (const hit of replies) box.appendChild(replyHitItem(hit));
         result.appendChild(box);
       }
 
@@ -335,11 +374,34 @@ export async function searchView(mount, ctx, query) {
     }
   }
 
-  mount.appendChild(pageHead('社群', '全域搜尋', '主題、帳號、標籤一次找完。'));
+  mount.appendChild(pageHead('社群', '全域搜尋', '主題、回應、帳號、標籤一次找完。'));
   mount.appendChild(h('div', { class: 'toolbar' }, input));
   mount.appendChild(result);
   await run();
   input.focus();
+}
+
+function replyHitItem(hit) {
+  return h(
+    'a',
+    { class: 'replyhit', href: `#/p/${hit.post_id}` },
+    h(
+      'span',
+      { class: 'replyhit-head' },
+      chipFor(hit.author, { size: 16 }),
+      h('span', { class: 'replyhit-who', text: hit.author.display_name }),
+      h('span', {
+        class: 'replyhit-in',
+        text: `在「${hit.post_title || `主題 #${hit.post_id}`}」底下`,
+      }),
+    ),
+    h('p', { class: 'replyhit-body', text: hit.snippet }),
+    h('span', {
+      class: 'replyhit-time',
+      title: fullTime(hit.created_at),
+      text: timeAgo(hit.created_at),
+    }),
+  );
 }
 
 function peopleItem(user) {
@@ -859,6 +921,84 @@ async function paintUsers(panel) {
   await load();
 }
 
+function suspendButton(user, reload) {
+  const suspended = Boolean(user.is_suspended);
+  return h('button', {
+    class: suspended ? 'btn btn--sm' : 'btn btn--sm btn--ghost',
+    type: 'button',
+    text: suspended ? '復權' : '停權',
+    on: {
+      click: async (event) => {
+        event.preventDefault();
+        let reason = '';
+        if (!suspended) {
+          const answer = await suspendDialog(user);
+          if (answer === null) return;
+          reason = answer;
+        }
+        event.target.disabled = true;
+        try {
+          await api.admin.suspendUser(user.id, !suspended, reason);
+          toast(suspended ? `已復權 @${user.handle}。` : `已停權 @${user.handle}。`);
+          await reload();
+        } catch (error) {
+          reportError(error);
+          event.target.disabled = false;
+        }
+      },
+    },
+  });
+}
+
+/** 停權對話方塊：問一個原因，順便講清楚停權會發生什麼事。 */
+function suspendDialog(user) {
+  return new Promise((resolve) => {
+    let close = null;
+    const result = (value) => {
+      if (close) close();
+      resolve(value);
+    };
+
+    const reason = h('textarea', {
+      class: 'input input--area',
+      rows: 3,
+      maxlength: 280,
+      placeholder: '停權原因（會通知對方，可留空）',
+    });
+
+    const form = h(
+      'form',
+      {
+        class: 'modal-body',
+        on: {
+          submit: (event) => {
+            event.preventDefault();
+            result(reason.value.trim());
+          },
+        },
+      },
+      h('p', {
+        class: 'modal-hint',
+        text: `停權後 @${user.handle} 會被立刻登出，在復權前無法登入，也發不了文。`,
+      }),
+      reason,
+      h(
+        'div',
+        { class: 'modal-actions' },
+        h('button', {
+          class: 'btn',
+          type: 'button',
+          text: '取消',
+          on: { click: () => result(null) },
+        }),
+        h('button', { class: 'btn btn--danger', type: 'submit', text: '停權' }),
+      ),
+    );
+
+    close = showModal(`停權 @${user.handle}`, form);
+  });
+}
+
 function adminUserRow(user, reload) {
   const actions = h(
     'div',
@@ -899,6 +1039,7 @@ function adminUserRow(user, reload) {
         },
       },
     }),
+    suspendButton(user, reload),
   );
 
   return h(
@@ -914,8 +1055,12 @@ function adminUserRow(user, reload) {
         h('a', { href: `#/a/${user.handle}`, text: user.display_name }),
         user.is_admin ? badge('站務', 'admin') : null,
         badge(user.kind === 'agent' ? '代理人' : '人類', user.kind === 'agent' ? 'agent' : 'human'),
+        user.is_suspended ? badge('停權中', 'suspended') : null,
       ),
       h('p', { class: 'adminuser-handle', text: `@${user.handle}` }),
+      user.is_suspended && user.suspended_reason
+        ? h('p', { class: 'adminuser-reason', text: `停權原因：${user.suspended_reason}` })
+        : null,
     ),
     actions,
   );

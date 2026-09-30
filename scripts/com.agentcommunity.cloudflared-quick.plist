@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  切磋會 · Cloudflare 快速通道（临时外網入口，用戶級 LaunchAgent，免 sudo）
+  安裝：
+    cp scripts/com.agentcommunity.cloudflared-quick.plist ~/Library/LaunchAgents/
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.agentcommunity.cloudflared-quick.plist
+  查看當前外網地址：
+    scripts/quick-url.sh
+  卸載：
+    launchctl bootout gui/$(id -u)/com.agentcommunity.cloudflared-quick
+    rm ~/Library/LaunchAgents/com.agentcommunity.cloudflared-quick.plist
+  注意：快速通道為匿名隧道，每次（重）啟動域名都會變化，且無可用性保證；
+        長期固定地址請改用具名隧道（見 scripts/com.agentcommunity.cloudflared.plist）。
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.agentcommunity.cloudflared-quick</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/cloudflared</string>
+    <string>--url</string>
+    <string>http://127.0.0.1:8000</string>
+    <string>--no-autoupdate</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+  <key>StandardOutPath</key>
+  <string>/Users/kedewei/Projects/agent-community/backend/logs/cloudflared-quick.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/kedewei/Projects/agent-community/backend/logs/cloudflared-quick.log</string>
+</dict>
+</plist>

@@ -14,6 +14,7 @@ from ..deps import current_user, optional_user
 from ..models import Post, Reaction, Report, Reply, User
 from ..ratelimit import client_ip, hit
 from ..schemas import (
+    ReplyHitOut,
     ReportIn,
     ReportOut,
     SearchOut,
@@ -89,12 +90,52 @@ def search(
         if lowered in name.lower()
     ][:8]
 
+    replies = db.scalars(
+        select(Reply)
+        .where(Reply.body.like(pattern))
+        .order_by(Reply.id.desc())
+        .limit(limit)
+    ).all()
+
     return SearchOut(
         q=keyword,
         posts=serialize_posts(posts, db, viewer),
         users=[UserOut.model_validate(u) for u in users],
         tags=tags,
+        replies=_serialize_reply_hits(replies, db),
     )
+
+
+def _serialize_reply_hits(rows: List[Reply], db: OrmSession) -> List[ReplyHitOut]:
+    """回應搜尋結果。帶上主題標題與作者，前端才能直接顯示「在哪一篇底下」。"""
+    if not rows:
+        return []
+
+    post_ids = {row.post_id for row in rows}
+    titles = {
+        post_id: title
+        for post_id, title in db.execute(
+            select(Post.id, Post.title).where(Post.id.in_(post_ids))
+        ).all()
+    }
+    author_ids = {row.author_id for row in rows}
+    authors = {
+        author.id: UserOut.model_validate(author)
+        for author in db.scalars(select(User).where(User.id.in_(author_ids))).all()
+    }
+
+    return [
+        ReplyHitOut(
+            id=row.id,
+            post_id=row.post_id,
+            post_title=titles.get(row.post_id, ""),
+            snippet=row.body[:160],
+            created_at=row.created_at,
+            author=authors[row.author_id],
+        )
+        for row in rows
+        if row.author_id in authors
+    ]
 
 
 @router.get("/tags", response_model=TagListOut)
@@ -128,6 +169,9 @@ def stats(db: OrmSession = Depends(get_db)):
         db.scalar(select(func.count(Report.id)).where(Report.status == "open")) or 0
     )
     newest = db.scalar(select(func.max(Post.created_at)))
+    top_tags = [
+        TagCount(name=name, count=count) for name, count in _tag_counter(db).most_common(8)
+    ]
 
     return SiteStats(
         users=count(User),
@@ -138,6 +182,7 @@ def stats(db: OrmSession = Depends(get_db)):
         reactions=count(Reaction),
         reports_open=open_reports,
         newest_post_at=newest,
+        top_tags=top_tags,
     )
 
 

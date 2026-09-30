@@ -15,23 +15,54 @@ from .. import invites
 from ..config import INVITE_REQUIRED
 from ..db import get_db, utcnow
 from ..deps import admin_user
-from ..models import Invite, Post, Reply, Report, User
+from ..models import Invite, Post, Reply, Report, Session, User
 from ..schemas import (
     AdminKindIn,
+    AdminSuspendIn,
     AdminUserIn,
+    AdminUserListOut,
+    AdminUserOut,
     InviteIn,
     InviteListOut,
     InviteOut,
     OkOut,
     ReportHandleIn,
     ReportOut,
-    UserListOut,
     UserOut,
 )
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 STATUSES = {"open", "resolved", "dismissed"}
+
+
+def _revoke_sessions(db: OrmSession, user_id: int, *, except_token_hash: str = "") -> int:
+    """清掉某個帳號的登入態。停權或降權當下就該生效，不能等 Cookie 自然過期。"""
+    stmt = select(Session).where(Session.user_id == user_id)
+    if except_token_hash:
+        stmt = stmt.where(Session.token_hash != except_token_hash)
+    rows = db.scalars(stmt).all()
+    for row in rows:
+        db.delete(row)
+    return len(rows)
+
+
+def _notify_suspension(db: OrmSession, admin: User, target: User, reason: str) -> None:
+    """被停權的人下次登入會被擋在門外，看不到站內通知——所以這則主要是留紀錄。
+
+    仍然寫進去：復權後回頭看得到「什麼時候被誰停權、理由是什麽」。
+    """
+    from .. import notify as notify_mod
+
+    notify_mod.push(
+        db,
+        recipient_id=target.id,
+        actor_id=admin.id,
+        kind="suspend",
+        preview=reason or "你的帳號已被站務停權",
+        # 停權與復權是兩次獨立的站務動作，都要留紀錄，不做同人同類型去重
+        once=False,
+    )
 
 
 def _serialize(report: Report) -> ReportOut:
@@ -93,7 +124,7 @@ def handle_report(
     return _serialize(report)
 
 
-@router.get("/users", response_model=UserListOut)
+@router.get("/users", response_model=AdminUserListOut)
 def list_users(
     kind: Optional[str] = Query(None),
     q: str = Query("", max_length=64),
@@ -109,10 +140,10 @@ def list_users(
         pattern = f"%{keyword}%"
         stmt = stmt.where(User.handle.like(pattern) | User.display_name.like(pattern))
     rows = db.scalars(stmt.order_by(User.id.asc()).limit(limit)).all()
-    return UserListOut(items=[UserOut.model_validate(u) for u in rows])
+    return AdminUserListOut(items=[AdminUserOut.model_validate(u) for u in rows])
 
 
-@router.patch("/users/{user_id}", response_model=UserOut)
+@router.patch("/users/{user_id}", response_model=AdminUserOut)
 def set_admin(
     user_id: int,
     payload: AdminUserIn,
@@ -127,10 +158,10 @@ def set_admin(
     target.is_admin = payload.is_admin
     db.commit()
     db.refresh(target)
-    return UserOut.model_validate(target)
+    return AdminUserOut.model_validate(target)
 
 
-@router.post("/users/{user_id}/kind", response_model=UserOut)
+@router.post("/users/{user_id}/kind", response_model=AdminUserOut)
 def set_kind(
     user_id: int,
     payload: AdminKindIn,
@@ -153,7 +184,46 @@ def set_kind(
 
     db.commit()
     db.refresh(target)
-    return UserOut.model_validate(target)
+    return AdminUserOut.model_validate(target)
+
+
+@router.post("/users/{user_id}/suspend", response_model=AdminUserOut)
+def set_suspension(
+    user_id: int,
+    payload: AdminSuspendIn,
+    db: OrmSession = Depends(get_db),
+    admin: User = Depends(admin_user),
+):
+    """停權 / 復權。
+
+    停權是即時生效的：`suspended_at` 一寫入，該帳號的登入態立刻全部作廢
+    （見 `_revoke_sessions`），進行中的 Cookie 也一併失效。
+    """
+    target = db.get(User, user_id)
+    if target is None:
+        raise HTTPException(status_code=404, detail="找不到這個帳號")
+    if target.id == admin.id:
+        raise HTTPException(status_code=422, detail="不能停權自己，請找另一位站務處理")
+    if target.is_admin and target.id != admin.id:
+        # 站務之間互相停權會變成權力鬥爭，這種事留給資料庫管理員處理
+        raise HTTPException(status_code=422, detail="不能停權另一位站務，請先解除其站務身分")
+
+    reason = payload.reason.strip()
+    if payload.suspended:
+        target.suspended_at = utcnow()
+        target.suspended_reason = reason
+        _revoke_sessions(db, target.id)
+        _notify_suspension(db, admin, target, reason)
+    else:
+        target.suspended_at = None
+        target.suspended_reason = ""
+        if reason:
+            # 復權時若有寫原因，當成一則紀錄留給對方
+            _notify_suspension(db, admin, target, f"帳號已復權：{reason}")
+
+    db.commit()
+    db.refresh(target)
+    return AdminUserOut.model_validate(target)
 
 
 @router.get("/overview")
@@ -169,6 +239,10 @@ def overview(
     return {
         "users": count(User),
         "agents": int(db.scalar(select(func.count(User.id)).where(User.kind == "agent")) or 0),
+        # 停權中的帳號數：站務一眼知道目前有多少人正被擋在門外
+        "suspended": int(
+            db.scalar(select(func.count(User.id)).where(User.suspended_at.is_not(None))) or 0
+        ),
         "posts": count(Post),
         "replies": count(Reply),
         "reports_open": int(

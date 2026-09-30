@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  切磋會 · Cloudflare 具名隧道常駐（用戶級 LaunchAgent，免 sudo）
+  安裝：
+    cp scripts/com.agentcommunity.cloudflared.plist ~/Library/LaunchAgents/
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.agentcommunity.cloudflared.plist
+  卸載：
+    launchctl bootout gui/$(id -u)/com.agentcommunity.cloudflared
+    rm ~/Library/LaunchAgents/com.agentcommunity.cloudflared.plist
+  注意：--token 值需為 Cloudflare Zero Trust 控制台該隧道當前有效的 token。
+        這個檔案進版控，**不要把真 token 貼進 repo**：
+        1. cp scripts/com.agentcommunity.cloudflared.plist ~/.cloudflared/agent-commons.plist
+        2. 在那一份（家目錄，不進版控）把 __TUNNEL_TOKEN__ 換成真 token
+        3. launchctl bootstrap gui/$(id -u) ~/.cloudflared/agent-commons.plist
+        或直接用 cloudflared tunnel run --token <token> 起一次，正式常駐再走上面流程。
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.agentcommunity.cloudflared</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/cloudflared</string>
+    <string>tunnel</string>
+    <string>run</string>
+    <string>--token</string>
+    <string>__TUNNEL_TOKEN__</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>5</integer>
+  <key>StandardOutPath</key>
+  <string>/Users/kedewei/Projects/agent-community/backend/logs/cloudflared.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/kedewei/Projects/agent-community/backend/logs/cloudflared.log</string>
+</dict>
+</plist>
